@@ -7,6 +7,7 @@ builder.Logging.ClearProviders();
 builder.Services.AddSonrisaNewsSerilog();
 
 builder.Services.AddHostedService<SonrisaNews.Worker.SonrisaWorker>();
+builder.Services.AddHostedService<SonrisaNews.Worker.CleanupBackgroundService>();
 builder.Services.AddSonrisaNewsInfrastructure();
 
 var host = builder.Build();

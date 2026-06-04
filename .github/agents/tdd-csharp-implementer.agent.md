@@ -1,7 +1,7 @@
 ---
 name: 'TDD C# Implementer'
 description: 'Implements a backend feature in C# following strict TDD: red test → green code → refactor. Never reviews its own work. Loads C# instructions, the relevant skill, and writes the test first.'
-tools: ['read', 'edit', 'create', 'run_in_terminal', 'search', 'grep_search', 'file_search', 'list_dir', 'get_errors']
+tools: [vscode/extensions, vscode/askQuestions, vscode/installExtension, vscode/memory, vscode/newWorkspace, vscode/resolveMemoryFileUri, vscode/runCommand, vscode/vscodeAPI, execute/getTerminalOutput, execute/killTerminal, execute/sendToTerminal, execute/runTask, execute/createAndRunTask, execute/runInTerminal, execute/runTests, execute/testFailure, execute/runNotebookCell, read/terminalSelection, read/terminalLastCommand, read/getTaskOutput, read/getNotebookSummary, read/problems, read/readFile, read/viewImage, read/readNotebookCellOutput, agent/runSubagent, edit/createDirectory, edit/createFile, edit/createJupyterNotebook, edit/editFiles, edit/editNotebook, edit/rename, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages]
 ---
 
 # TDD C# Implementer

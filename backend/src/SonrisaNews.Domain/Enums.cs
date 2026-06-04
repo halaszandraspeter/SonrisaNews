@@ -41,6 +41,14 @@ public enum UserStatus
     SoftDeleted = 4,
 }
 
+/// <summary>Lifecycle of a <c>Notification</c> row. Pending -> Sent or Failed. Digest batching (wave 8) may add a "Queued" state.</summary>
+public enum NotificationStatus
+{
+    Pending = 1,
+    Sent = 2,
+    Failed = 3,
+}
+
 /// <summary>Role assigned to a user. Drives RBAC checks.</summary>
 public enum UserRole
 {
