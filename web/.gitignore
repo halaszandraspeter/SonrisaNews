@@ -1,0 +1,24 @@
+node_modules
+.next
+out
+dist
+.turbo
+.pnpm-store
+
+.env
+.env.local
+.env.*.local
+
+# Playwright
+test-results
+playwright-report
+playwright/.cache
+
+# Vitest
+coverage
+.vitest-cache
+
+# IDE
+.idea
+.vscode/*
+!.vscode/launch.json
