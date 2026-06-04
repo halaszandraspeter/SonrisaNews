@@ -1,0 +1,126 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev: up",
+      "type": "shell",
+      "command": "${workspaceRoot}/scripts/dev.${isWindows}.ps1",
+      "windows": {
+        "command": "powershell",
+        "args": ["-ExecutionPolicy", "Bypass", "-File", "${workspaceRoot}/scripts/dev.ps1"]
+      },
+      "linux": {
+        "command": "bash",
+        "args": ["${workspaceRoot}/scripts/dev.sh"]
+      },
+      "osx": {
+        "command": "bash",
+        "args": ["${workspaceRoot}/scripts/dev.sh"]
+      },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "dev: reset-db",
+      "type": "shell",
+      "command": "rm -f data/sonrisa.db && dotnet ef database update --project backend/src/SonrisaNews.Infrastructure",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: tail-logs",
+      "type": "shell",
+      "command": "tail -f backend/src/SonrisaNews.Api/logs/*.log backend/src/SonrisaNews.Worker/logs/*.log 2>/dev/null || echo 'No log files yet.'",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: open-mailhog",
+      "type": "shell",
+      "command": "start http://localhost:8025",
+      "windows": { "command": "start http://localhost:8025" },
+      "linux": { "command": "xdg-open http://localhost:8025" },
+      "osx": { "command": "open http://localhost:8025" },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: open-swagger",
+      "type": "shell",
+      "command": "start http://localhost:5080/scalar/v1",
+      "windows": { "command": "start http://localhost:5080/scalar/v1" },
+      "linux": { "command": "xdg-open http://localhost:5080/scalar/v1" },
+      "osx": { "command": "open http://localhost:5080/scalar/v1" },
+      "problemMatcher": []
+    },
+    {
+      "label": "db: migration add",
+      "type": "shell",
+      "command": "dotnet ef migrations add ${input:migrationName} --project backend/src/SonrisaNews.Infrastructure",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": [],
+      "promptOnClose": true
+    },
+    {
+      "label": "db: migration apply",
+      "type": "shell",
+      "command": "dotnet ef database update --project backend/src/SonrisaNews.Infrastructure",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "test: all",
+      "type": "shell",
+      "command": "dotnet test backend/SonrisaNews.sln && pnpm --dir web test && (cd services/yfinance && uv run pytest || pytest)",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": ["$dotnet", "$eslint-stylish"],
+      "group": "test"
+    },
+    {
+      "label": "test: backend",
+      "type": "shell",
+      "command": "dotnet test backend/SonrisaNews.sln",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": ["$dotnet"],
+      "group": "test"
+    },
+    {
+      "label": "test: frontend",
+      "type": "shell",
+      "command": "pnpm --dir web test",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "test"
+    },
+    {
+      "label": "test: sidecar",
+      "type": "shell",
+      "command": "cd services/yfinance && (uv run pytest || pytest)",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "test: e2e",
+      "type": "shell",
+      "command": "pnpm --dir web test:e2e",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "rbac: audit",
+      "type": "shell",
+      "command": "dotnet run --project backend/tools/RbacAudit -- --policies backend/src/SonrisaNews.Infrastructure/Auth/rbac_policy.csv --controllers backend/src/SonrisaNews.Api",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "openapi: regenerate-client",
+      "type": "shell",
+      "command": "pnpm --dir web generate:api",
+      "options": { "cwd": "${workspaceRoot}" },
+      "problemMatcher": []
+    }
+  ]
+}

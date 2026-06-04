@@ -1,0 +1,73 @@
+#!/usr/bin/env sh
+# .githooks/pre-commit — Sonrisa News
+# Block commits that violate the project's non-negotiables.
+# Installed by `scripts/dev.sh` via `git config core.hooksPath .githooks`.
+
+set -e
+
+red() { printf "\033[31m%s\033[0m\n" "$1"; }
+green() { printf "\033[32m%s\033[0m\n" "$1"; }
+yellow() { printf "\033[33m%s\033[0m\n" "$1"; }
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+# 1. Block commits of forbidden files
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+
+forbidden_patterns=(
+  '\.env$'
+  '\.env\.local$'
+  'appsettings\.Production\.json$'
+  'rbac_policy\.csv$'
+  'backend/.*/Migrations/.*\.cs$'
+)
+
+for pattern in "${forbidden_patterns[@]}"; do
+  if echo "$staged_files" | grep -qE "$pattern"; then
+    red "❌ Forbidden file staged: matches /$pattern/"
+    red "   See .github/copilot-instructions.md for the rule."
+    exit 1
+  fi
+done
+
+# 2. Secret-pattern scan
+#    Catches obvious cases (AWS keys, GitHub PATs, Resend keys, Slack tokens, JWTs).
+#    NOT a substitute for provider-side secret scanning; this is a fast pre-commit guard.
+secret_patterns=(
+  'AKIA[0-9A-Z]{16}'                          # AWS access key
+  'ghp_[0-9a-zA-Z]{36}'                       # GitHub personal access token
+  're_[0-9a-zA-Z]{20,}'                       # Resend API key
+  'xox[baprs]-[0-9a-zA-Z-]{10,}'              # Slack token
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----'        # PEM private key
+)
+
+for pattern in "${secret_patterns[@]}"; do
+  if git diff --cached | grep -qE "^\+.*$pattern"; then
+    red "❌ Possible secret in staged changes: matches /$pattern/"
+    red "   If this is a test fixture, exclude it explicitly. Otherwise, rotate the secret and re-commit."
+    exit 1
+  fi
+done
+
+# 3. Format and lint (backend)
+if command -v dotnet >/dev/null 2>&1; then
+  if echo "$staged_files" | grep -qE '^backend/.*\.cs$'; then
+    if ! dotnet format backend/SonrisaNews.sln --verify-no-changes --no-restore >/dev/null 2>&1; then
+      red "❌ dotnet format would change files. Run 'dotnet format backend/SonrisaNews.sln' and re-stage."
+      exit 1
+    fi
+  fi
+fi
+
+# 4. Format and lint (frontend)
+if command -v pnpm >/dev/null 2>&1; then
+  if echo "$staged_files" | grep -qE '^web/.*\.(ts|tsx)$'; then
+    if ! pnpm --dir web lint >/dev/null 2>&1; then
+      red "❌ pnpm lint failed. Run 'pnpm --dir web lint' and fix the issues."
+      exit 1
+    fi
+  fi
+fi
+
+green "✅ pre-commit checks passed."

@@ -1,0 +1,82 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API",
+      "type": "coreclr",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/backend/src/SonrisaNews.Api/SonrisaNews.Api.csproj",
+      "preLaunchTask": "db: migration apply",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5080",
+        "ConnectionStrings__Sonrisa": "Data Source=${workspaceFolder}/data/sonrisa.db",
+        "Smtp__Host": "localhost",
+        "Smtp__Port": "1025",
+        "Smtp__From": "noreply@sonrisa.local",
+        "Smtp__Username": "",
+        "Smtp__Password": "",
+        "Yfinance__BaseUrl": "http://localhost:8001"
+      },
+      "logging": {
+        "console": {
+          "theme": "dark",
+          "logLevel": {
+            "default": "Information",
+            "Microsoft.AspNetCore": "Warning",
+            "Microsoft.EntityFrameworkCore": "Warning"
+          }
+        }
+      }
+    },
+    {
+      "name": "Worker",
+      "type": "coreclr",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/backend/src/SonrisaNews.Worker/SonrisaNews.Worker.csproj",
+      "preLaunchTask": "db: migration apply",
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "ConnectionStrings__Sonrisa": "Data Source=${workspaceFolder}/data/sonrisa.db",
+        "Yfinance__BaseUrl": "http://localhost:8001"
+      }
+    },
+    {
+      "name": "Frontend (Next.js)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "web", "dev"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Sidecar (yfinance)",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["yfinance_service.main:app", "--port", "8001", "--reload"],
+      "cwd": "${workspaceFolder}/services/yfinance",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "RbacAudit",
+      "type": "coreclr",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/backend/tools/RbacAudit/RbacAudit.csproj",
+      "args": [
+        "--policies", "${workspaceFolder}/backend/src/SonrisaNews.Infrastructure/Auth/rbac_policy.csv",
+        "--controllers", "${workspaceFolder}/backend/src/SonrisaNews.Api"
+      ],
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "All Backend",
+      "configurations": ["API", "Worker"]
+    }
+  ]
+}

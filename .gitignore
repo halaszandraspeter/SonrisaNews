@@ -1,0 +1,58 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Node
+node_modules/
+.next/
+.turbo/
+dist/
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Build artifacts
+*.log
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Local data
+data/
+/tmp/
+
+# Secrets
+.env
+.env.local
+.env.*.local
+appsettings.Development.json
+appsettings.Production.json
+
+# Generated
+**/wwwroot/dist/
+**/Migrations/SonrisaNewsModelSnapshot.cs
+
+# OS
+.DS_Store

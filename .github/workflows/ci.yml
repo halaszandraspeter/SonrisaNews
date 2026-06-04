@@ -1,0 +1,232 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  NODE_VERSION: '22'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Lint frontend
+        run: |
+          cd web
+          pnpm install --frozen-lockfile
+          pnpm lint
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Check dotnet format
+        run: dotnet format backend/SonrisaNews.sln --verify-no-changes --no-restore
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Lint sidecar
+        run: |
+          cd services/yfinance
+          uv pip install --system ruff
+          ruff check .
+
+  backend:
+    name: Backend (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore backend/SonrisaNews.sln
+
+      - name: Build
+        run: dotnet build backend/SonrisaNews.sln --no-restore --configuration Release
+
+      - name: Test
+        env:
+          ConnectionStrings__Sonrisa: 'Data Source=:memory:'
+        run: dotnet test backend/SonrisaNews.sln --no-build --configuration Release --verbosity normal
+
+      - name: RBAC audit
+        run: dotnet run --project backend/tools/RbacAudit -- --policies backend/src/SonrisaNews.Infrastructure/Auth/rbac_policy.csv --controllers backend/src/SonrisaNews.Api
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        working-directory: web
+        run: pnpm test
+
+      - name: Build
+        working-directory: web
+        run: pnpm build
+
+      - name: OpenAPI client drift check
+        working-directory: web
+        run: |
+          pnpm generate:api
+          if [ -n "$(git status --porcelain lib/api/)" ]; then
+            echo "::error::OpenAPI client is out of date. Run 'pnpm generate:api' locally and commit the result."
+            exit 1
+          fi
+
+  sidecar:
+    name: Sidecar (yfinance)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install
+        working-directory: services/yfinance
+        run: uv sync
+
+      - name: Test
+        working-directory: services/yfinance
+        run: uv run pytest
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install MailHog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y golang-go
+          go install github.com/mailhog/MailHog@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore backend/SonrisaNews.sln
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install sidecar
+        working-directory: services/yfinance
+        run: uv sync
+
+      - name: Start MailHog
+        run: |
+          MailHog > /tmp/mailhog.log 2>&1 &
+          sleep 2
+          curl -s http://localhost:8025 > /dev/null || (echo "MailHog failed" && exit 1)
+
+      - name: Start sidecar
+        working-directory: services/yfinance
+        run: |
+          uv run uvicorn yfinance_service.main:app --port 8001 > /tmp/sidecar.log 2>&1 &
+          sleep 3
+
+      - name: Migrate DB
+        run: dotnet ef database update --project backend/src/SonrisaNews.Infrastructure
+
+      - name: Start Api
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: 'http://localhost:5080'
+          ConnectionStrings__Sonrisa: 'Data Source=${{ github.workspace }}/data/sonrisa.db'
+          Smtp__Host: localhost
+          Smtp__Port: '1025'
+          Smtp__From: noreply@sonrisa.local
+          Yfinance__BaseUrl: 'http://localhost:8001'
+        run: |
+          dotnet run --project backend/src/SonrisaNews.Api > /tmp/api.log 2>&1 &
+          sleep 15
+          curl -s http://localhost:5080/health > /dev/null || (echo "Api failed to start" && cat /tmp/api.log && exit 1)
+
+      - name: Install Playwright deps
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E
+        working-directory: web
+        env:
+          NEXT_PUBLIC_API_URL: 'http://localhost:5080'
+        run: pnpm test:e2e
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: |
+            /tmp/mailhog.log
+            /tmp/sidecar.log
+            /tmp/api.log
