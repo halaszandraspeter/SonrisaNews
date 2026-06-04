@@ -61,7 +61,7 @@ if ($sidecar) {
     Write-Yellow "  yfinance sidecar already running"
 } else {
     Push-Location services/yfinance
-    Start-Process -FilePath 'uv' -ArgumentList 'run','uvicorn','yfinance_service.main:app','--port','8001' -RedirectStandardOutput 'C:\Temp\yfinance.log' -RedirectStandardError 'C:\Temp\yfinance.err' -WindowStyle Hidden
+    Start-Process -FilePath 'uv' -ArgumentList 'run','uvicorn','yfinance_service.main:create_app','--factory','--port','8001' -RedirectStandardOutput 'C:\Temp\yfinance.log' -RedirectStandardError 'C:\Temp\yfinance.err' -WindowStyle Hidden
     Pop-Location
     Start-Sleep -Seconds 3
     Write-Green "✓ yfinance sidecar started (:8001)"
@@ -69,12 +69,14 @@ if ($sidecar) {
 
 Write-Cyan "==> Running EF migrations"
 New-Item -ItemType Directory -Force -Path 'data' | Out-Null
-dotnet ef database update --project backend/src/SonrisaNews.Infrastructure 2>&1 | Select-Object -Last 5
-Write-Green "✓ DB migrated"
 
 if ($Reset) {
-    Write-Yellow "  --Reset: DB rebuilt from scratch"
+    Write-Yellow "  -Reset: deleting data/sonrisa.db before applying migrations"
+    Remove-Item -Path 'data/sonrisa.db' -Force -ErrorAction SilentlyContinue
 }
+
+dotnet ef database update --project backend/src/SonrisaNews.Infrastructure 2>&1 | Select-Object -Last 5
+Write-Green "✓ DB migrated"
 
 Write-Cyan "==> Starting .NET AppHost (Api + Worker)"
 $apphost = Get-Process -Name 'SonrisaNews.AppHost' -ErrorAction SilentlyContinue

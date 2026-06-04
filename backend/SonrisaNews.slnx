@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SonrisaNews.Api/SonrisaNews.Api.csproj" />
+    <Project Path="src/SonrisaNews.AppHost/SonrisaNews.AppHost.csproj" />
+    <Project Path="src/SonrisaNews.Domain/SonrisaNews.Domain.csproj" />
+    <Project Path="src/SonrisaNews.Infrastructure/SonrisaNews.Infrastructure.csproj" />
+    <Project Path="src/SonrisaNews.Shared/SonrisaNews.Shared.csproj" />
+    <Project Path="src/SonrisaNews.Worker/SonrisaNews.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SonrisaNews.UnitTests/SonrisaNews.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/RbacAudit/RbacAudit.csproj" />
+  </Folder>
+</Solution>

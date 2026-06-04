@@ -1,0 +1,20 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.0.2">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SonrisaNews.Api\SonrisaNews.Api.csproj" />
+    <ProjectReference Include="..\SonrisaNews.Worker\SonrisaNews.Worker.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.0.2" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>8fdc163b-c87d-47fe-bbb1-bd6ca8f278db</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

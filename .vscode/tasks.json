@@ -24,16 +24,30 @@
     {
       "label": "dev: reset-db",
       "type": "shell",
-      "command": "rm -f data/sonrisa.db && dotnet ef database update --project backend/src/SonrisaNews.Infrastructure",
+      "command": "${workspaceRoot}/scripts/dev.${isWindows}.ps1 -Reset",
+      "windows": {
+        "command": "powershell",
+        "args": ["-ExecutionPolicy", "Bypass", "-File", "${workspaceRoot}/scripts/dev.ps1", "-Reset"]
+      },
+      "linux": {
+        "command": "bash",
+        "args": ["${workspaceRoot}/scripts/dev.sh", "--reset"]
+      },
+      "osx": {
+        "command": "bash",
+        "args": ["${workspaceRoot}/scripts/dev.sh", "--reset"]
+      },
       "options": { "cwd": "${workspaceRoot}" },
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
     },
     {
       "label": "dev: tail-logs",
       "type": "shell",
-      "command": "tail -f backend/src/SonrisaNews.Api/logs/*.log backend/src/SonrisaNews.Worker/logs/*.log 2>/dev/null || echo 'No log files yet.'",
+      "command": "tail -f /tmp/apphost.log /tmp/mailhog.log /tmp/yfinance.log /tmp/nextdev.log",
       "options": { "cwd": "${workspaceRoot}" },
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
     },
     {
       "label": "dev: open-mailhog",

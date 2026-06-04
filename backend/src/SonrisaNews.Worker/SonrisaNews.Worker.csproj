@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-SonrisaNews.Worker-ca8b1de3-5c62-4865-9ece-6062d16a7ba7</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SonrisaNews.Domain\SonrisaNews.Domain.csproj" />
+    <ProjectReference Include="..\SonrisaNews.Infrastructure\SonrisaNews.Infrastructure.csproj" />
+    <ProjectReference Include="..\SonrisaNews.Shared\SonrisaNews.Shared.csproj" />
+  </ItemGroup>
+</Project>

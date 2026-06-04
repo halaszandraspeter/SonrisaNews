@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    Centralized MSBuild properties. Applied to every project in the solution.
+    Wave 1: pin the transitive System.Security.Cryptography.Xml to a patched
+    version. The 9.0.0 line has high-severity advisories (GHSA-37gx-xxp4-5rgx,
+    GHSA-w3x6-4m5h-cxqf); pinning to the latest 9.0.x patch clears the
+    vulnerability without taking a hard major-version dependency.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

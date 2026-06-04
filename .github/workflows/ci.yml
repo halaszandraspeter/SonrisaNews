@@ -154,11 +154,16 @@ jobs:
         run: npm install -g pnpm
 
       - name: Install MailHog
+        # Download the prebuilt binary instead of `go install` (which compiles
+        # the whole toolchain and can be slow / fail behind GFW or in restricted
+        # networks). Released binaries are upstream-signed.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y golang-go
-          go install github.com/mailhog/MailHog@latest
-          echo "$HOME/go/bin" >> $GITHUB_PATH
+          set -euo pipefail
+          curl -fsSL \
+            https://github.com/mailhog/MailHog/releases/download/v1.0.1/MailHog_linux_amd64 \
+            -o /usr/local/bin/mailhog
+          chmod +x /usr/local/bin/mailhog
+          /usr/local/bin/mailhog -version || true
 
       - name: Install .NET
         uses: actions/setup-dotnet@v4

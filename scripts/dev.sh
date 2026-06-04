@@ -57,7 +57,7 @@ if pgrep -f "uvicorn yfinance_service" >/dev/null 2>&1; then
   yellow "  yfinance sidecar already running"
 else
   cd services/yfinance
-  uv run uvicorn yfinance_service.main:app --port 8001 > /tmp/yfinance.log 2>&1 &
+  uv run uvicorn yfinance_service.main:create_app --factory --port 8001 > /tmp/yfinance.log 2>&1 &
   sleep 2
   cd "$repo_root"
   green "✓ yfinance sidecar started (:8001)"
@@ -66,12 +66,14 @@ fi
 # .NET AppHost (boots Api + Worker with service discovery)
 cyan "==> Running EF migrations"
 mkdir -p data
-dotnet ef database update --project backend/src/SonrisaNews.Infrastructure 2>&1 | tail -5
-green "✓ DB migrated"
 
 if [ "$RESET" = "1" ]; then
-  yellow "  --reset: DB rebuilt from scratch"
+  yellow "  --reset: deleting data/sonrisa.db before applying migrations"
+  rm -f data/sonrisa.db
 fi
+
+dotnet ef database update --project backend/src/SonrisaNews.Infrastructure 2>&1 | tail -5
+green "✓ DB migrated"
 
 # Start the AppHost
 cyan "==> Starting .NET AppHost (Api + Worker)"
