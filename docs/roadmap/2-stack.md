@@ -211,7 +211,7 @@ backend/
 |---|---|---|
 | MVP DB | **SQLite** (single file at `data/sonrisa.db`) | Zero install. Prisma-equivalent EF Core experience. Trivial backup. Perfect for solo dev + 24h MVP. |
 | Prod DB | **Postgres 16** (on the same host) | When the user count grows past a few hundred active users and the matcher can't keep up, or when we need full-text search on event payloads. The schema is Postgres-compatible from day 1 (no SQLite-specific types). Postgres is installed natively (no Docker), and we ship a `systemd` / Windows Service unit file alongside the .NET worker. |
-| Migration tool | **EF Core migrations** | Standard. Migrations are forward-only; Postgres swap is `provider switch + one-line connection string`. |
+| Migration tool | **EF Core migrations** | Standard. Migrations are forward-only; Postgres swap is `provider switch + one-line connection string`. <!-- done: 2026-06-04, see PR pending — InitialSchema migration applied to data/sonrisa.db. The schema is currently SQLite-only types (TEXT, INTEGER) and will need a `HasColumnType` audit at the wave-8 Postgres swap. Deferred to handoff §7 (TimeOnly column type). --> |
 | Connection | EF Core, **scoped per request** in Api, **singleton DbContext** (carefully) or scoped in Worker | Standard patterns. |
 | Full-text search | MVP: `LIKE %?%` with a FTS index later (Postgres `tsvector` or SQLite FTS5) | Not in MVP. |
 
@@ -476,5 +476,6 @@ Polyrepo is an option. Monorepo is chosen because: one PR touches frontend + bac
 - **Process model**: combined Api+Worker in MVP via .NET Aspire AppHost; microservice split is a future packaging step (same `AddContainer` / `AddKubernetesPublisher` extension, no source changes).
 - **No Docker / no containers** in MVP. All processes are native. MailHog runs as a Go binary, Postgres installed natively, packaged as `systemd` unit / Windows Service later. AppHost can later publish to Docker Compose / Kubernetes if the deployment target demands it.
 - **Time format**: all timestamps stored as UTC, rendered in the user's local timezone.
+- **InitialSchema migration applied** (2026-06-04, wave 2): the §5 "schema is Postgres-portable" claim is now grounded in a real migration. SQLite column types (TEXT, INTEGER) are used; the `HasColumnType` audit for Postgres is in `docs/handoffs/wave2-to-future.md` §7 (TimeOnly on `Channel.QuietHoursStart/End`). <!-- done: 2026-06-04, see PR pending -->
 
 No open questions remain in this doc. If you sign off, we move on to `3-ai-environment.md`.

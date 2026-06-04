@@ -7,7 +7,22 @@ Sonrisa News lets users subscribe to alerts about things that matter — RSS new
 
 ## Status
 
-🚧 **24-hour MVP in progress.** Planning complete; bootstrap is done; building the features.
+🚧 **24-hour MVP in progress.** Planning complete; bootstrap is done; **wave 2 (database + persistence skeleton) is the latest shipped milestone**.
+
+| Wave | Title | Status |
+|---|---|---|
+| 1 | Scaffold + plumbing | ✅ Shipped (bootstrap) |
+| 2 | Database + persistence skeleton | ✅ Shipped <!-- done: 2026-06-04, see PR pending --> |
+| 3 | Auth + RBAC | ⬜ Not started |
+| 4 | Channel abstraction | ⬜ Not started |
+| 5 | Alert CRUD + filters | ⬜ Not started |
+| 6 | News poller + matcher | ⬜ Not started |
+| 7 | yfinance sidecar + market poller | ⬜ Not started |
+| 8 | Disaster poller + dispatcher + digests | ⬜ Not started |
+| 9 | Onboarding wizard + dashboard | ⬜ Not started |
+| 10 | Admin | ⬜ Not started |
+| 11 | E2E + observability + polish | ⬜ Not started |
+| 12 | Release prep | ⬜ Not started |
 
 The locked planning documents live in [`docs/roadmap/`](docs/roadmap/):
 

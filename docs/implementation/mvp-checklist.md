@@ -1,7 +1,7 @@
 # Sonrisa News — MVP Implementation Checklist
 
 > **Scope**: the 24-hour build. Source of truth: [`1-features.md`](../roadmap/1-features.md), [`2-stack.md`](../roadmap/2-stack.md), [`3-ai-environment.md`](../roadmap/3-ai-environment.md).
-> **Status**: planning + bootstrap done. This doc tracks the build order, the audit of the current repo, and the tripwires that apply to every step.
+> **Status**: planning + bootstrap done. **Wave 2 (database + persistence skeleton) shipped on 2026-06-04**; the build-order table below shows per-wave status. This doc tracks the build order, the audit of the current repo, and the tripwires that apply to every step.
 > **User has final word** on every decision below. If a wave is too large, the wave splits; if a wave is too small, the wave merges.
 
 ---
@@ -65,9 +65,9 @@ Each wave is sized for **1–2 hours** of focused work. The first three are scaf
 
 | # | Wave | Goal | First green test |
 |---|---|---|---|
-| 1 | **Scaffold + plumbing** | Solution builds, AppHost boots, "Hello world" round trip | `dotnet build` passes, `pnpm build` passes, AppHost dashboard reachable at `:15000` |
-| 2 | **Database + persistence skeleton** | EF Core + SQLite + first migration applies; `dotnet ef` is wired | `dotnet ef database update` against `:memory:` succeeds, integration test reads/writes a row |
-| 3 | **Auth + RBAC** | Sign-up, sign-in, refresh, `[Authorize]` works, `rbac_policy.csv` exists with all MVP permissions, audit tool runs | xUnit: `SignUp_DuplicateEmail_Returns409`; rbac-audit tool exits 0 |
+| 1 | **Scaffold + plumbing** | Solution builds, AppHost boots, "Hello world" round trip | `dotnet build` passes, `pnpm build` passes, AppHost dashboard reachable at `:15000` | ✅ |
+| 2 | **Database + persistence skeleton** | EF Core + SQLite + first migration applies; `dotnet ef` is wired | `dotnet ef database update` against `:memory:` succeeds, integration test reads/writes a row | ✅ |
+| 3 | **Auth + RBAC** | Sign-up, sign-in, refresh, `[Authorize]` works, `rbac_policy.csv` exists with all MVP permissions, audit tool runs | xUnit: `SignUp_DuplicateEmail_Returns409`; rbac-audit tool exits 0 | ⬜ |
 | 4 | **Channel abstraction** | `INotificationChannel`, `EmailChannel` (via MailHog), `SlackChannel`, channel verify flow | xUnit: `EmailChannel_SendAsync_HitsSmtpServer` (with a fake `SmtpClient`); contract test for both |
 | 5 | **Alert CRUD + filters** | Alert entity, filters JSON per type, CRUD endpoints, channel-mode matrix | xUnit: `CreateAlert_NewsWithKeywordFilter_PersistsFilter`; Playwright: create an alert in the UI |
 | 6 | **News poller + matcher** | RSS `IDataSource`, matcher engine, `Match` audit row, dispatcher wired | xUnit: `Matcher_NewsAlertWithKeywordFilter_MatchesWhenTitleContains` (red → green) |
@@ -142,6 +142,8 @@ dotnet test backend/SonrisaNews.UnitTests --filter Category=Database
 ```
 
 **Agent**: TDD C# Implementer.
+
+**Status**: ✅ Shipped 2026-06-04. The 10 entities from `1-features.md` §4 are scaffolded in [`backend/src/SonrisaNews.Domain/Entities/`](../../backend/src/SonrisaNews.Domain/Entities) with the three required composite indexes (`IX_Events_SourceId_OccurredAt`, `IX_Matches_AlertId_FiredAt`, `IX_Notifications_UserId_SentAt`). FK relationships declared in every dependent `IEntityTypeConfiguration`. `InitialSchema` migration applied to `data/sonrisa.db`. Test suite is 32 passing, 0 failing, 0 warnings. Deferred items live in [`docs/handoffs/wave2-to-future.md`](../handoffs/wave2-to-future.md) — 21 items, each with an "Action in wave N" line.
 
 ---
 

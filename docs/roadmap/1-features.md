@@ -191,6 +191,8 @@ Indexes (SQLite → Postgres-compatible):
 - `Match (alert_id, fired_at)` for "what fired recently" views.
 - `Notification (user_id, sent_at desc)` for the activity feed.
 
+<!-- done: 2026-06-04, see PR pending — all 10 entities (plus 3 auth-token entities EmailVerification / PasswordResetToken / RefreshToken, which are part of the Wave 3 contract) are scaffolded in the model. The 3 composite indexes are declared via IEntityTypeConfiguration. FK relationships are declared in every dependent configuration. The InitialSchema migration is generated and applied. Deferred items: see docs/handoffs/wave2-to-future.md. -->
+
 ---
 
 ## 5. Background work (MVP)
