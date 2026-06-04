@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/github/awesome-copilot/main/.schemas/hooks.schema.json",
+  "version": "1.0.0",
+  "hooks": [
+    {
+      "name": "block-forbidden-files",
+      "event": "pre-tool:create_file",
+      "matchTool": ["create_file", "edit_file", "insert_edit_into_file"],
+      "script": ".githooks/hooks/block-forbidden-files.js",
+      "description": "Reject writes to .env, appsettings.Production.json, rbac_policy.csv, and hand-edited migration files."
+    },
+    {
+      "name": "block-destructive-commands",
+      "event": "pre-tool:run_in_terminal",
+      "matchTool": ["run_in_terminal"],
+      "script": ".githooks/hooks/block-destructive-commands.js",
+      "description": "Reject rm -rf outside safe paths, git push --force, and database updates against non-dev connections."
+    },
+    {
+      "name": "verify-migration-shape",
+      "event": "post-tool:run_in_terminal",
+      "matchTool": ["run_in_terminal"],
+      "script": ".githooks/hooks/verify-migration-shape.js",
+      "description": "After a 'dotnet ef migrations add' command, verify the generated migration has both Up and Down methods."
+    },
+    {
+      "name": "secret-pattern-scan",
+      "event": "post-tool:create_file",
+      "matchTool": ["create_file", "edit_file", "insert_edit_into_file"],
+      "script": ".githooks/hooks/secret-pattern-scan.js",
+      "description": "Scan the new/edited content for common secret patterns and refuse if matched."
+    }
+  ]
+}
