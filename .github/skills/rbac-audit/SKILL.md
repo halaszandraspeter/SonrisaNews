@@ -1,24 +1,28 @@
 ---
 name: 'rbac-audit'
-description: 'Runs an audit script that diffs the RBAC policy file against the [Authorize(Policy = ...)] attributes in the controllers. Reports any policy used in code that is not granted in the policy file, and any permission in the policy file that is not used.'
+description: 'Runs an audit script that diffs the [Authorize(Policy = ...)] attributes in the controllers against the permissions table in the DB. Reports any policy used in code that does not exist as a row in `Permissions`, and any row in `RolePermissions` that is not used by code.'
 ---
 
 # RBAC Audit
 
-A drift between the controllers' `[Authorize]` attributes and the `rbac_policy.csv` file is a security bug. Either:
+A drift between the controllers' `[Authorize]` attributes and the DB-backed RBAC catalog is a security bug. The audit catches two cases:
 
-- A policy is **granted in the CSV but not used** in code (dead permission — usually harmless, but a sign of incomplete work).
-- A policy is **used in code but not granted** in the CSV (worst case: 403 to legitimate users, or 200 to illegitimate ones if the fallback is permissive).
+- A permission is **used in code but not granted in the DB** (worst case: 403 to legitimate users, or 200 to illegitimate ones if the fallback is permissive).
+- A permission is **granted in the DB but not used in code** (dead permission — usually harmless, but a sign of incomplete work).
 
-The audit catches both.
+The RBAC model is **DB-driven** (user rule, 2026-06-05): five tables — `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`. There is no CSV and no Casbin. The audit reads the DB directly.
 
 ## 1. The audit script
 
 A small `dotnet` console app at `backend/tools/RbacAudit/Program.cs`. Run with:
 
 ```bash
+# Default: reads from the dev SQLite DB at data/sonrisa.db.
+dotnet run --project backend/tools/RbacAudit
+
+# Or point at a specific DB:
 dotnet run --project backend/tools/RbacAudit -- \
-    --policies backend/src/SonrisaNews.Infrastructure/Auth/rbac_policy.csv \
+    --connection "Data Source=data/sonrisa.db" \
     --controllers backend/src/SonrisaNews.Api
 ```
 
@@ -26,18 +30,22 @@ Or, in CI:
 
 ```yaml
 - name: RBAC audit
-  run: dotnet run --project backend/tools/RbacAudit -- --policies backend/src/SonrisaNews.Infrastructure/Auth/rbac_policy.csv --controllers backend/src/SonrisaNews.Api
+  run: dotnet run --project backend/tools/RbacAudit
 ```
+
+The script **takes no policy file**. The DB is the policy.
 
 ## 2. The script's job
 
-1. **Parse `rbac_policy.csv`**. Build a set of `p, <role>, <resource>, <action>` tuples and `g, <user>, <role>` tuples.
-2. **Walk every controller in `--controllers`**. Use Roslyn (`Microsoft.CodeAnalysis.CSharp`) to find:
+1. **Open the SQLite/Postgres DB** at the connection string from `ConnectionStrings:Sonrisa` (or `--connection`).
+2. **Read the `Permissions` table** to build the set of permission names that exist in the catalog.
+3. **Read `RolePermissions`** to build the set of `(role, permission)` grants.
+4. **Walk every controller in `--controllers`** (default `backend/src/SonrisaNews.Api`). Use Roslyn (`Microsoft.CodeAnalysis.CSharp`) to find:
    - Every class with `[ApiController]` or `[Controller]`.
    - Every action with `[Authorize(Policy = "...")]`.
-3. **For each policy used in code**, check that at least one role in the CSV grants it (or that the role is `*` and the resource is `*`).
-4. **For each policy in the CSV**, check that it's used somewhere in code. If not, warn.
-5. **Print a report** to stdout. Exit non-zero on any "missing" finding; warn (exit 0) on "unused".
+5. **For each policy used in code**, check that the permission exists in the `Permissions` table AND that at least one role in `RolePermissions` grants it.
+6. **For each `(role, permission)` in `RolePermissions`**, check that the permission is used somewhere in code. If not, warn.
+7. **Print a report** to stdout. Exit non-zero on any "missing" finding; warn (exit 0) on "unused".
 
 ## 3. The output format
 
@@ -45,19 +53,19 @@ Or, in CI:
 RBAC Audit Report
 =================
 
-✅ Granted policies used in code:
-  - Alerts.Read.Own      (User, Admin)
-  - Alerts.Write.Own     (User, Admin)
-  - Channels.Read.Own    (User, Admin)
-  - Channels.Write.Own   (User, Admin)
-  - Sources.Write.Any    (Admin)
-  - Users.Suspend        (Admin)
+✅ Granted permissions used in code:
+  - Alerts.Read.Own      (granted to: User, Admin)
+  - Alerts.Write.Own     (granted to: User, Admin)
+  - Channels.Read.Own    (granted to: User, Admin)
+  - Channels.Write.Own   (granted to: User, Admin)
+  - Sources.Write.Any    (granted to: Admin)
+  - Users.Suspend        (granted to: Admin)
 
-⚠️  Granted policies not used in code:
+⚠️  Granted permissions not used in code:
   - AuditLog.Read        (Admin)            — no [Authorize(Policy = "AuditLog.Read")] found
   - Matcher.Run          (System)           — internal; not expected to be in controllers
 
-❌ Used in code but NOT granted in policy file:
+❌ Used in code but NOT granted in DB:
   - Foo.Bar.Baz          (controller: AdminAnnouncementsController.Send)
 
 Exit code: 1 (fix the ❌ line)
@@ -67,30 +75,50 @@ Exit code: 1 (fix the ❌ line)
 
 ```csharp
 // Simplified outline. Real implementation lives in the repo.
-using System.CommandLine;            // for the CLI args
-using Microsoft.CodeAnalysis;        // Roslyn
+using System.CommandLine;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.EntityFrameworkCore;
+using SonrisaNews.Infrastructure.Persistence;
 
-var policiesArg = new Option<string>("--policies") { IsRequired = true };
-var controllersArg = new Option<string>("--controllers") { IsRequired = true };
+var connectionOption = new Option<string>("--connection") { IsRequired = false };
+var controllersOption = new Option<string>("--controllers") { IsRequired = false };
 
-var root = new RootCommand { policiesArg, controllersArg };
-root.SetHandler((policiesPath, controllersPath) =>
+var root = new RootCommand { connectionOption, controllersOption };
+root.SetHandler(async (string? connection, string? controllers) =>
 {
-    var granted = ParsePolicyFile(policiesPath);
+    var exitCode = await AuditAsync(connection, controllers);
+    Environment.Exit(exitCode);
+}, connectionOption, controllersOption);
+
+return await root.InvokeAsync(args);
+
+static async Task<int> AuditAsync(string? connectionString, string? controllersPath)
+{
+    connectionString ??= Environment.GetEnvironmentVariable("ConnectionStrings__Sonrisa")
+        ?? "Data Source=data/sonrisa.db";
+    controllersPath ??= "backend/src/SonrisaNews.Api";
+
+    // 1. Open the DB and read the catalog
+    using var db = new SonrisaNewsDbContext(
+        new DbContextOptionsBuilder<SonrisaNewsDbContext>()
+            .UseSqlite(connectionString).Options);
+
+    var granted = await db.RolePermissions
+        .Join(db.Permissions, rp => rp.PermissionId, p => p.Id, (rp, p) => new { p.Name })
+        .Select(x => x.Name)
+        .ToListAsync();
+
+    // 2. Walk controllers via Roslyn (see §5)
     var used = ScanControllers(controllersPath);
 
-    var missing = used.Keys.Except(granted.Keys).ToList();
-    var unused = granted.Keys.Except(used.Keys).ToList();
-
+    // 3. Report
+    var missing = used.Keys.Except(granted).ToList();
+    var unused = granted.Except(used.Keys).ToList();
     // ... print the report ...
-    Environment.Exit(missing.Count == 0 ? 0 : 1);
-}, policiesArg, controllersArg);
-
-return root.Invoke(args);
-
-// ... ParsePolicyFile and ScanControllers implementations follow.
+    return missing.Count == 0 ? 0 : 1;
+}
 ```
 
 ## 5. The Roslyn scan
@@ -117,8 +145,7 @@ static Dictionary<string, List<string>> ScanControllers(string rootPath)
             if (policyArg is null) continue;
 
             var policyName = policyArg.Expression.ToString().Trim('"');
-            if (!usages.ContainsKey(policyName))
-                usages[policyName] = new List<string>();
+            if (!usages.ContainsKey(policyName)) usages[policyName] = new List<string>();
             usages[policyName].Add(Path.GetFileName(file));
         }
     }
@@ -127,54 +154,23 @@ static Dictionary<string, List<string>> ScanControllers(string rootPath)
 }
 ```
 
-## 6. The policy file parser
-
-The CSV is small and predictable. A line-based parse is enough:
-
-```csharp
-static Dictionary<string, List<string>> ParsePolicyFile(string path)
-{
-    var lines = File.ReadAllLines(path);
-    var granted = new Dictionary<string, List<string>>();
-
-    foreach (var line in lines)
-    {
-        if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#"))
-            continue;
-
-        var parts = line.Split(',').Select(p => p.Trim()).ToArray();
-        if (parts.Length < 4 || parts[0] != "p") continue;
-
-        var role = parts[1];
-        var resource = parts[2];
-        var action = parts[3];
-        var key = $"{resource}.{action}";
-
-        if (!granted.ContainsKey(key))
-            granted[key] = new List<string>();
-        granted[key].Add(role);
-    }
-
-    return granted;
-}
-```
-
-## 7. CI integration
+## 6. CI integration
 
 The audit runs in the `backend` job in `ci.yml`. A failure blocks the PR.
 
 The output is uploaded as a build artifact (`rbac-audit.txt`) so reviewers can see it without re-running the script.
 
-## 8. When to run by hand
+## 7. When to run by hand
 
-- After any change to `rbac_policy.csv`.
+- After any migration that touches `Permissions` or `RolePermissions`.
 - After adding a new `[Authorize(Policy = "...")]` attribute.
-- After adding a new permission constant to `Permissions.cs`.
+- After adding a new permission constant to `Permissions.cs` (the migration must seed the new row before the audit is run).
 - When a new controller is added.
 
-## 9. Forbidden
+## 8. Forbidden
 
-- Editing the policy file to silence the audit (the audit exists *because* people forget to update the file)
+- **Editing the seed data to silence the audit** (the audit exists *because* people forget to add the grant)
 - Marking the audit as a soft warning (it is a hard fail in CI)
-- Adding a new policy to code without a corresponding `p` line
-- Adding a new `p` line without updating the controllers (or marking it as "internal" with a comment)
+- Adding a new policy to code without seeding the `Permissions` row + the `RolePermissions` grant in a migration
+- Adding a new row to `Permissions` without using it in a controller (or marking it as "internal" with a comment)
+- Re-introducing a Casbin / CSV policy file (the model is DB-driven; CSV was removed)

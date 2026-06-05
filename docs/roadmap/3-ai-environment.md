@@ -49,7 +49,7 @@ These are `.instructions.md` files. They activate only when the agent touches ma
 | `.github/instructions/nextjs-react.instructions.md` | `web/**/*.{ts,tsx}` | React/Next.js rules, "no client components in server-only trees", Zod for forms, React Query patterns, MUI conventions, no inline `style={}` when a `sx` prop will do. |
 | `.github/instructions/python-fastapi.instructions.md` | `services/**/*.py` | yfinance sidecar rules, async/await discipline, structured logging, dependency-injected HTTP clients, no blocking I/O on the event loop. |
 | `.github/instructions/database-migrations.instructions.md` | `backend/**/Migrations/**` | Migrations are forward-only, never edited after merge, always include a Down-script comment for reference. |
-| `.github/instructions/rbac-policies.instructions.md` | `backend/**/Auth/**`, `backend/**/rbac_policy.csv` | RBAC is the security boundary. Any change must include a unit test demonstrating that the new permission works AND a test demonstrating that an unauthorized role is rejected. |
+| `.github/instructions/rbac-policies.instructions.md` | `backend/**/Auth/**` | RBAC is the security boundary (DB-driven, 5 tables: `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`). Any change must include a unit test demonstrating that the new permission works AND a test demonstrating that an unauthorized user is rejected. Validation is by permission, never by role. |
 | `.github/instructions/secrets.instructions.md` | `**/.env*`, `**/appsettings.*.json`, `**/secrets.*` | No real secrets. `.env` is gitignored. Use `dotnet user-secrets` for local dev. Production secrets come from env vars. If the agent sees what looks like a real key, stop and tell the user. |
 | `.github/instructions/openapi-schema.instructions.md` | `backend/**/Controllers/**` | Every controller method must declare `[ProducesResponseType]`, `[ProducesResponseType(StatusCodes.Status4xx)]`, summary in XML doc. The OpenAPI doc is the contract with the frontend. |
 | `.github/instructions/testing.instructions.md` | `**/*Tests*/**/*.{cs,ts}` | No tests that depend on real network. No tests that depend on real time without `IClock`. All tests must be hermetic and run on CI. |
@@ -108,7 +108,7 @@ Hooks are scripts that run before/after certain Copilot events. We keep the set 
 |---|---|---|
 | `pre-tool:run_in_terminal` | Before any terminal command | Reject commands that match: `rm -rf`, `git push --force origin main`, `dotnet ef database update` against a non-dev connection, anything with `--env production` in the args, anything that resolves a real API key from a known provider. |
 | `post-tool:run_in_terminal` | After a `dotnet ef migrations add` | Verify the migration has both `Up` and `Down` methods, and that the model snapshot is committed. |
-| `pre-tool:create_file` / `edit_file` | Before writing a new or modified file | Reject edits to: `appsettings.Production.json`, `.env` (only `.env.example` allowed), `rbac_policy.csv` (propose in PR description only), `**/Migrations/*.cs` (only allowed via `dotnet ef` CLI; manual edits rejected). |
+| `pre-tool:create_file` / `edit_file` | Before writing a new or modified file | Reject edits to: `appsettings.Production.json`, `.env` (only `.env.example` allowed), the RBAC seed data (`Permissions.cs` constants without a migration), `**/Migrations/*.cs` (only allowed via `dotnet ef` CLI; manual edits rejected). |
 | `post-tool:create_file` / `edit_file` | After writing a file under `backend/**/Migrations/**` | Run `dotnet build` and `dotnet test --filter Category=Database` to catch broken migrations early. |
 | `pre-commit` (Git hook, installed by `scripts/dev.sh`) | Before `git commit` | Run `dotnet format --verify-no-changes` and `pnpm lint`. Block the commit if they fail. |
 
@@ -221,7 +221,7 @@ Per your memory rule: **the agent never auto-updates `1-features.md`**. It can o
 | Skip a failing test | `pre-commit` hook runs `dotnet test --no-build`; commit blocked if any test fails. |
 | Hand-edit a migration after it's been merged | `pre-tool` hook rejects edits to `backend/**/Migrations/*.cs`; migrations are owned by the CLI. |
 | Add a real secret to the repo | `secrets.instructions.md` + `pre-tool` regex check on common secret patterns. |
-| Modify `rbac_policy.csv` silently | `pre-tool` hook rejects; only allowed via a labeled PR. |
+| Modify the RBAC catalog silently (new role / permission without a migration) | `pre-tool` hook rejects; only allowed via a labeled `feat(rbac): …` migration. |
 | Use a paid data provider | `AGENTS.md` non-negotiable; reviewer agent checks. |
 
 All of these are belt-and-suspenders. The point isn't paranoia; it's that in a 24-hour build, you don't have time to recover from a botched `rm` or a leaked key.

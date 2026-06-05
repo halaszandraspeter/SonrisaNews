@@ -37,8 +37,8 @@ Before we start, here's what's already in place vs. what the docs claim. **No co
 | 5 | `dev: tail-logs` task points at `backend/src/SonrisaNews.Api/logs/*.log` and `...Worker/logs/*.log` — these paths only exist if Serilog file sinks are configured. We plan to log to stdout/console (per `2-stack.md` §3) | `.vscode/tasks.json` | Wave 1: rewrite to tail `/tmp/apphost.log` (and the `.err` file on Windows). |
 | 6 | `ci.yml` e2e job installs MailHog via `go install github.com/mailhog/MailHog@latest` — slow (compiles Go) and may fail behind GFW or in restricted networks | `.github/workflows/ci.yml` | Wave 1: download the prebuilt binary from the GitHub release instead. |
 | 7 | `ci.yml` `openapi: regenerate-client` runs `pnpm generate:api` — that script doesn't exist in `web/package.json` yet | `web/package.json` | Wave 2: add the `generate:api` script as part of scaffolding. |
-| 8 | `rbac_policy.csv` not created — RBAC is "the security boundary" but the file is the only artifact we'll be checking against | `backend/src/SonrisaNews.Infrastructure/Auth/` | Wave 3 (auth) — created with the seed `p` and `g` lines per `rbac-policies.instructions.md`. |
-| 9 | `add-a-channel`, `add-a-data-source`, `add-a-matcher`, `rbac-audit`, `seed-admin-user` skills reference paths and snippets that don't exist yet (e.g. `RbacPolicyHandler.cs`, `EmailChannel.cs`) | `.github/skills/*/SKILL.md` | These are **future** guides; the templates get filled in as the first implementations land (channels in wave 4, RBAC in wave 3). No change now. |
+| 8 | `rbac_policy.csv` not created — RBAC is "the security boundary" but the file is the only artifact we'll be checking against | `backend/src/SonrisaNews.Infrastructure/Auth/` | **Superseded 2026-06-05.** RBAC is now DB-driven (5 tables: `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions` — see [`.github/instructions/rbac-policies.instructions.md`](../../.github/instructions/rbac-policies.instructions.md)). The CSV is gone; the seed migration creates the catalog. |
+| 9 | `add-a-channel`, `add-a-data-source`, `add-a-matcher`, `rbac-audit`, `seed-admin-user` skills reference paths and snippets that don't exist yet (e.g. `RbacPolicyHandler.cs`, `EmailChannel.cs`) | `.github/skills/*/SKILL.md` | These are **future** guides; the templates get filled in as the first implementations land (channels in wave 4, RBAC in wave 3). The `rbac-audit` skill reads the DB (not the CSV) per the 2026-06-05 user rule. No change now. |
 | 10 | `LICENSE` referenced by `README.md` doesn't exist | repo root | Wave 11: add MIT license before the first release. **Not in 24h critical path** — bump to wave 11. |
 | 11 | AI onboarding path: doc says rule-based, your call was "admin configures provider, users see option only if configured" | `2-stack.md` §6.3 | Wave 8: design the `IAiProvider` interface + admin settings screen + conditional UI on the wizard. |
 | 12 | AppHost, Api, Worker are separate projects — your call was "easily changeable to microservices" | `2-stack.md` §3 | Confirmed. No change to architecture; the AppHost + Aspire path **is** the microservice-ready shape. |
@@ -67,7 +67,7 @@ Each wave is sized for **1–2 hours** of focused work. The first three are scaf
 |---|---|---|---|
 | 1 | **Scaffold + plumbing** | Solution builds, AppHost boots, "Hello world" round trip | `dotnet build` passes, `pnpm build` passes, AppHost dashboard reachable at `:15000` | ✅ |
 | 2 | **Database + persistence skeleton** | EF Core + SQLite + first migration applies; `dotnet ef` is wired | `dotnet ef database update` against `:memory:` succeeds, integration test reads/writes a row | ✅ |
-| 3 | **Auth + RBAC** | Sign-up, sign-in, refresh, `[Authorize]` works, `rbac_policy.csv` exists with all MVP permissions, audit tool runs | xUnit: `SignUp_DuplicateEmail_Returns409`; rbac-audit tool exits 0 | ⬜ |
+| 3 | **Auth + RBAC** | Sign-up, sign-in, refresh, `[Authorize]` works, RBAC is DB-driven (5 tables, seeded), audit tool runs | xUnit: `SignUp_DuplicateEmail_Returns409`; rbac-audit tool exits 0 | ✅ (backend) · ✅ (frontend 2026-06-05) |
 | 4 | **Channel abstraction** | `INotificationChannel`, `EmailChannel` (via MailHog), `SlackChannel`, channel verify flow | xUnit: `EmailChannel_SendAsync_HitsSmtpServer` (with a fake `SmtpClient`); contract test for both |
 | 5 | **Alert CRUD + filters** | Alert entity, filters JSON per type, CRUD endpoints, channel-mode matrix | xUnit: `CreateAlert_NewsWithKeywordFilter_PersistsFilter`; Playwright: create an alert in the UI |
 | 6 | **News poller + matcher** | RSS `IDataSource`, matcher engine, `Match` audit row, dispatcher wired | xUnit: `Matcher_NewsAlertWithKeywordFilter_MatchesWhenTitleContains` (red → green) |
@@ -150,15 +150,16 @@ dotnet test backend/SonrisaNews.UnitTests --filter Category=Database
 ### Wave 3 — Auth + RBAC (2h)
 
 **Scope**
-- `User` entity fleshed out (email, password_hash, display_name, role, time_zone, status).
+- `User` entity fleshed out (email, password_hash, display_name, time_zone, status, must_change_password).
 - `EmailVerification`, `PasswordResetToken`, `RefreshToken` tables.
-- ASP.NET Core Identity wired + `JwtBearer` middleware + refresh cookie.
-- Controllers: `AuthController` (signup, signin, refresh, signout, verify, forgot, reset).
-- `Permissions.cs` constants for **all 15 permissions** in `rbac-policies.instructions.md`.
-- `rbac_policy.csv` with `p, Admin, *, *`, `p, User, Alerts, own`, `p, User, Channels, own`, `p, System, Matcher, run`, plus `g, ${SEED_ADMIN_EMAIL}, Admin`.
-- `RbacPolicyHandler` (Casbin.NET) registered in DI.
+- **RBAC catalog** (5 tables, per the 2026-06-05 user rule): `Roles`, `Permissions`, `UserRoles`, `RolePermissions` — seeded by an `INSERT` in the wave 3 migration. `User.Role` column is removed; the role is a row in `UserRoles`.
+- `Permissions.cs` constants for **all 16 permissions** (the 15 from `rbac-policies.instructions.md` plus `Profile.Read`).
+- `RbacPolicyHandler` registered in DI. The handler runs a single SQL JOIN per request (`UserRoles ⨝ RolePermissions`); no Casbin, no CSV. The result is cached per request.
+- ASP.NET Core `JwtBearer` middleware + refresh cookie.
+- Controllers: `AuthController` (signup, signin, refresh, signout, verify, forgot, reset) + `MeController` (`GET /me`, guarded by `Profile.Read`).
 - `AuditLog` filter registered globally on `(admin)/` controllers.
-- `tools/RbacAudit` console app implemented (Roslyn: parse controllers, compare to CSV, exit non-zero on "missing"). **This is your call to include in wave 0 — moved to wave 3 since it needs controllers to audit against.**
+- `tools/RbacAudit` console app implemented (Roslyn: parse controllers, query the DB, exit non-zero on "missing"). **Replaces the CSV-based audit.**
+- `AdminSeeder` hosted service: creates the bootstrap admin and inserts a `UserRoles` row.
 - Frontend: `(auth)/signin`, `(auth)/signup`, `(auth)/verify`, `lib/auth` with refresh interceptor.
 
 **Out of scope**
@@ -166,17 +167,17 @@ dotnet test backend/SonrisaNews.UnitTests --filter Category=Database
 - No password reset email **template** (use a basic text email for now; React Email lands in wave 9).
 
 **Tripwires**
-- [rbac-policies.instructions.md](../../.github/instructions/rbac-policies.instructions.md) — every change to `Auth/` or `rbac_policy.csv` ships with a positive AND a negative test. Both mandatory.
+- [rbac-policies.instructions.md](../../.github/instructions/rbac-policies.instructions.md) — every change to `Auth/` or the role/permission tables ships with a positive AND a negative test. Both mandatory. Validation is by permission, never by role — `[Authorize(Roles = ...)]` and `if (user.Role == ...)` are forbidden.
 - [secrets.instructions.md](../../.github/instructions/secrets.instructions.md) — no real `Jwt__SigningKey` in code, env-var only.
 - [openapi-schema.instructions.md](../../.github/instructions/openapi-schema.instructions.md) — `[ProducesResponseType]` for success + 4xx.
 - Use the [seed-admin-user](../../.github/skills/seed-admin-user/SKILL.md) skill.
-- Use the [rbac-audit](../../.github/skills/rbac-audit/SKILL.md) skill before opening the PR.
+- Use the [rbac-audit](../../.github/skills/rbac-audit/SKILL.md) skill before opening the PR. The tool reads the DB, not a CSV.
 
 **Verify**
 ```bash
 dotnet test backend/SonrisaNews.UnitTests --filter Category=Auth
 dotnet test backend/SonrisaNews.IntegrationTests --filter Category=Auth
-dotnet run --project backend/tools/RbacAudit -- --policies ... --controllers ...
+dotnet run --project backend/tools/RbacAudit
 # 0 "missing" findings, exit 0
 curl -X POST http://localhost:5080/auth/signup -d '{"email":"a@b.com","password":"..."}' -i   # 201
 curl -X POST http://localhost:5080/auth/signin -d '{"email":"a@b.com","password":"..."}' -i   # 200, refresh cookie set
@@ -347,7 +348,7 @@ dotnet test backend --filter Category=Market
 - Onboarding wizard (wave 9).
 
 **Tripwires**
-- [rbac-policies.instructions.md](../../.github/instructions/rbac-policies.instructions.md) — `Matcher.Run` is `System` only; the dispatcher is invoked by the worker, not by a controller.
+- [rbac-policies.instructions.md](../../.github/instructions/rbac-policies.instructions.md) — `Matcher.Run` is granted to `System` only (via `RolePermissions`); the dispatcher is invoked by the worker, not by a controller.
 - Reliability: `Match (alert_id, event_id)` is unique. Dispatcher is idempotent: re-runs after a crash must not double-send.
 - Quiet hours: the queued notification must surface on the admin health page if it's still queued > 24h.
 - The `INotificationChannel` interface is the seam. **No `if (channel.Type == "email")` in the dispatcher** — keyed DI.
@@ -438,7 +439,7 @@ pnpm --dir web test:e2e --grep "admin"
 #  Non-admin gets redirected from /admin
 #  Admin can disable a source; next poll skips it
 #  Admin can suspend a user; user can't sign in
-dotnet run --project backend/tools/RbacAudit -- ...
+dotnet run --project backend/tools/RbacAudit
 #  0 missing, 0 unused warnings
 ```
 
@@ -513,7 +514,7 @@ git tag v0.1.0-mvp
 These are the rules the agent **must** follow on every PR, in every wave. They've been lifted from `AGENTS.md`, the per-domain instructions, and the skills; this is just the consolidated view.
 
 1. **No secrets in code.** `.env` is gitignored. Production secrets come from env vars. Use `dotnet user-secrets` for local dev.
-2. **Migrations are CLI-owned.** `dotnet ef migrations add <Name>`. Never hand-edit. Both `Up` and `Down` mandatory. Commit the snapshot.
+2. **Migrations are CLI-owned.** `dotnet ef migrations add <Name>`. Never hand-edit. Both `Up` and `Down` mandatory Validation is by permission, never by role — see [`.github/instructions/rbac-policies.instructions.md`](../../.github/instructions/rbac-policies.instructions.md).. Commit the snapshot.
 3. **RBAC changes ship with two tests** (one positive, one negative). `rbac-audit` exits 0 before the PR is opened.
 4. **Every controller declares `[ProducesResponseType]` for success + 4xx.** The OpenAPI doc is the contract.
 5. **Frontend regenerates the API client on every OpenAPI change** (`pnpm generate:api`). Drift is a bug.

@@ -124,7 +124,7 @@ web/
 | ORM | **EF Core 10 + Pomelo MySQL provider for Postgres + Microsoft.EntityFrameworkCore.Sqlite for dev** | Migrations are first-class. `dotnet ef migrations` workflow. |
 | Validation | **FluentValidation** | Industry standard. Cleaner than data-annotations. |
 | Auth | **ASP.NET Core Identity + JWT bearer + custom RBAC layer** | Identity handles password hashing, lockout, tokens. JWT bearer middleware for stateless auth. RBAC is a custom policy layer on top. |
-| RBAC | **Casbin.NET** | Industry-standard, declarative policy files, role + permission matrix, supports hierarchical roles. Alternative: hand-rolled `[Authorize(Roles=…)]` with a policy provider. Casbin wins for "industry standard" but is one more dep. |
+| RBAC | **DB-driven** (5 tables: `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`) | Auditable in SQL. Validation is by permission, never by role (user rule, 2026-06-05). The `RbacPolicyHandler` does a single JOIN per request; no CSV, no Casbin. |
 | OpenAPI | **Swashbuckle** (or **Scalar** for the UI) | Generates OpenAPI 3.1 from controllers. UI for the docs. |
 | Background work | **`IHostedService` + `BackgroundService`** | Built-in. We don't need Hangfire/Quartz for MVP — no scheduling beyond "every N minutes". |
 | Email | **MailKit** (SMTP) | Free, well-maintained. Pluggable: can use local SMTP (MailHog in dev) or a real SMTP (Resend free tier). |
@@ -137,17 +137,22 @@ web/
 
 **RBAC** (the part you specifically called out):
 
-- Roles seeded from `appsettings.json` at startup: `User`, `Admin`, `System`.
-- Permissions enumerated as constants in `Permissions.cs` (e.g. `Alerts.Read.Own`, `Alerts.Write.Own`, `Sources.Write.Any`, `Users.Suspend`, `AuditLog.Read`).
-- Casbin policy file `rbac_policy.csv`:
+- **DB-driven catalog** (user rule, 2026-06-05). Five tables: `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`. Seeded by an `INSERT` in the initial migration. The `Users` table has **no `Role` column** — the role is a row in `UserRoles`.
+- Roles seeded at migration time: `User`, `Admin`, `System`.
+- Permissions enumerated as constants in `Permissions.cs` (e.g. `Alerts.Read.Own`, `Alerts.Write.Own`, `Sources.Write.Any`, `Users.Suspend`, `AuditLog.Read`). Each constant has a row in `Permissions` and a row in `RolePermissions` for each role that may perform it.
+- Grants in `RolePermissions` (replaces the earlier `rbac_policy.csv`):
   ```
-  p, Admin, Sources.*, *
-  p, Admin, Users.*, *
-  p, User, Alerts.*, own
-  p, User, Channels.*, own
-  g, alice, Admin
+  RolePermissions:
+    (Admin,  Alerts.Read.Any)     -- Admin can read any alert
+    (Admin,  Alerts.Write.Any)    -- Admin can edit any alert
+    (User,   Alerts.Read.Own)     -- User can read their own alerts
+    (User,   Alerts.Write.Own)    -- User can edit their own alerts
+    (User,   Channels.Read.Own)
+    (User,   Channels.Write.Own)
+    (System, Matcher.Run)          -- the worker, no human
   ```
-- Endpoints decorated with `[Authorize(Policy = "Alerts.Write.Own")]`. Policy handler in `RbacPolicyHandler.cs` consults Casbin with `(subject=currentUser, action=permission, resource=targetEntity)`.
+- Endpoints decorated with `[Authorize(Policy = "Alerts.Write.Own")]`. The policy handler in `RbacPolicyHandler.cs` runs a single SQL JOIN against `UserRoles ⨝ RolePermissions` (cached per request). The handler is the **only** authorization enforcement point.
+- **Validation is always by permission, never by role.** `[Authorize(Roles = "Admin")]`, `RequireRole("Admin")`, and `if (user.Role == ...)` are forbidden. A future change "give admins an extra action" adds a row in `RolePermissions`, not a role check in code.
 - Audit-logged on every admin action.
 
 **Folder layout**:
@@ -307,9 +312,9 @@ MVP implementation: rule-based (no LLM). If we add an LLM later, it's the same i
 5. **Sign-out**: POST `/auth/signout` → clears refresh cookie, revokes refresh in DB.
 6. **Password reset**: POST `/auth/forgot` → email with `/auth/reset?token=…` → POST `/auth/reset` with new password.
 
-JWT payload: `sub`, `email`, `role`, `iat`, `exp`, `jti`. Secret is a 256-bit env var. RS256 (asymmetric) so the worker (which only verifies, never signs) doesn't need the signing key. Refresh tokens are opaque, stored in `RefreshToken` table with `revoked_at` and `replaced_by_id` for rotation.
+JWT payload: `sub`, `email`, `iat`, `exp`, `jti` (the role is **not** in the JWT — it's resolved from the DB by the `RbacPolicyHandler` per request, via the `UserRoles ⨝ RolePermissions` join). Secret is a 256-bit env var. RS256 (asymmetric) so the worker (which only verifies, never signs) doesn't need the signing key. Refresh tokens are opaque, stored in `RefreshToken` table with `revoked_at` and `replaced_by_id` for rotation.
 
-**RBAC** (Casbin) is consulted **after** authentication, on every controller action. The policy file is version-controlled.
+**RBAC** (DB-driven) is consulted **after** authentication, on every controller action, via the `RbacPolicyHandler` doing a single SQL JOIN against `UserRoles ⨝ RolePermissions`. The catalog is auditable in SQL; the migration is the source of truth. Validation is by permission, never by role (user rule, 2026-06-05).
 
 ---
 
@@ -463,7 +468,7 @@ Polyrepo is an option. Monorepo is chosen because: one PR touches frontend + bac
 | Email deliverability in dev (we use MailHog) doesn't match prod | N/A — dev only | Real provider is configured via env vars. We never claim "sent" in tests. |
 | 24h scope is tight — feature creep | High | `1-features.md` says "out of MVP". Stick to it. |
 | MUI customization eats time | Medium | MUI defaults only. No theme overrides in MVP. |
-| RBAC over-engineering in 24h | Medium | Use Casbin. If too heavy, fall back to a hand-rolled `[Authorize(Policy=…)]` provider. Either works; the policy file is what matters. |
+| RBAC over-engineering in 24h | Medium | Use the 5-table DB-driven model (`Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`). The catalog is a handful of `INSERT` statements; the handler is one EF query per request. |
 
 ---
 
@@ -471,7 +476,7 @@ Polyrepo is an option. Monorepo is chosen because: one PR touches frontend + bac
 
 **Resolved** (locked in):
 - **.NET version**: 10 LTS for MVP; .NET 11 considered post-MVP for async/perf.
-- **RBAC**: Casbin.NET (industry-standard).
+- **RBAC**: DB-driven (5 tables: `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`). Validation is by permission, never by role.
 - **UI**: MUI **v9** (lighter than v6, current stable).
 - **Process model**: combined Api+Worker in MVP via .NET Aspire AppHost; microservice split is a future packaging step (same `AddContainer` / `AddKubernetesPublisher` extension, no source changes).
 - **No Docker / no containers** in MVP. All processes are native. MailHog runs as a Go binary, Postgres installed natively, packaged as `systemd` unit / Windows Service later. AppHost can later publish to Docker Compose / Kubernetes if the deployment target demands it.

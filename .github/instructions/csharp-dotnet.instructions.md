@@ -29,8 +29,9 @@ applyTo: 'backend/**/*.cs'
 ## RBAC rules
 
 - **Every controller action that reads or writes data** must have an `[Authorize(Policy = "…")]` attribute. The policy name is a constant in `Permissions.cs`.
-- **The policy name follows the pattern `<Resource>.<Action>.<Scope>`**: e.g. `Alerts.Write.Own`, `Sources.Write.Any`, `Users.Suspend`. The handler in `RbacPolicyHandler.cs` consults Casbin with `(subject, action, resource)`.
-- **Resource ownership is enforced at the handler**, not in the controller. The handler reads `currentUser.Id` from the request and passes it as a Casbin domain. Don't repeat ownership checks in the controller body.
+- **The policy name follows the pattern `<Resource>.<Action>.<Scope>`**: e.g. `Alerts.Write.Own`, `Sources.Write.Any`, `Users.Suspend`. The handler in `RbacPolicyHandler.cs` consults the DB (`UserRoles ⨝ RolePermissions`) to decide whether the current user has the permission.
+- **Resource ownership is enforced at the handler**, not in the controller. The handler reads `currentUser.Id` from the request and joins it against the `UserRoles` + `RolePermissions` tables. Don't repeat ownership checks in the controller body.
+- **Validation is by permission, never by role** (user rule, 2026-06-05). `[Authorize(Roles = "Admin")]`, `RequireRole("Admin")`, and `if (user.Role == UserRole.Admin)` are all forbidden. Always go through the policy handler.
 - **Admin actions write to `AuditLog`** via the `IAuditLog.RecordAsync(action, target, metadata, ct)` helper. It's called from a filter, not manually.
 
 ## Controller rules

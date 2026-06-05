@@ -16,7 +16,7 @@ Build Sonrisa News — a free, open-source alert service. Reliability first. Sou
 ## Stack (one-liner)
 
 - **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript strict + **MUI v9** + React Query v5 + Zod.
-- **Backend**: C# / .NET 10 LTS, ASP.NET Core controllers, EF Core 10, Casbin.NET for RBAC, MailKit for SMTP, Swashbuckle for OpenAPI.
+- **Backend**: C# / .NET 10 LTS, ASP.NET Core controllers, EF Core 10, **DB-driven RBAC** (5 tables: `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions` — see [`.github/instructions/rbac-policies.instructions.md`](./instructions/rbac-policies.instructions.md)), MailKit for SMTP, Swashbuckle for OpenAPI.
 - **Sidecar**: Python 3.12 + FastAPI + yfinance.
 - **DB**: SQLite in MVP, Postgres-compatible schema.
 - **Dev process model**: .NET Aspire AppHost, no Docker.
@@ -33,19 +33,23 @@ Source: [docs/roadmap/2-stack.md](../docs/roadmap/2-stack.md).
 6. **When changing the OpenAPI doc**, regenerate the frontend client (`pnpm --dir web generate:api`) and check the diff. Drift is a bug.
 7. **Never edit `appsettings.Production.json` directly.** Propose the change in the PR description and let the user apply.
 8. **Never edit `.env`.** Only `.env.example` may be committed.
-9. **Never edit `backend/src/SonrisaNews.Infrastructure/Auth/rbac_policy.csv` directly.** Open a labeled PR (`feat(rbac): …`); a `pre-tool` hook blocks silent edits.
+9. **Never edit `rbac_policy.csv` (or the equivalent DB rows) directly.** If the file exists, treat it as read-only. Role / permission grants live in the `Roles` / `Permissions` / `RolePermissions` tables — change them via a labeled migration (`feat(rbac): …`) or the admin UI; a `pre-tool` hook blocks silent edits to the CSV.
 10. **Never use paid data providers or cloud subscriptions.** If a task seems to require one, stop and ask the user.
 11. **Never `git push --force` to `main`.** A `pre-tool` hook blocks it.
 12. **Never `rm -rf` outside `node_modules`, `bin`, `obj`, `dist`, `.next`, `.pytest_cache`.** A `pre-tool` hook blocks anything else.
 
 ## The "RBAC + auth" tripwire
 
-Any change to `backend/src/SonrisaNews.Infrastructure/Auth/`, `backend/src/SonrisaNews.Api/Auth/`, or `rbac_policy.csv` must include:
+The RBAC model is **DB-driven** (see [`.github/instructions/rbac-policies.instructions.md`](./instructions/rbac-policies.instructions.md)): `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`. There is no CSV and no Casbin — the handler asks the DB "does this user have permission X?" via a `UserRoles ⨝ RolePermissions` join.
+
+Any change to `backend/src/SonrisaNews.Infrastructure/Auth/`, `backend/src/SonrisaNews.Api/Auth/`, the role / permission entities, or the seed data must include:
 
 - A unit test demonstrating the new permission **works** for an authorized user.
 - A unit test demonstrating the permission is **rejected** for an unauthorized user.
 
 Both tests are mandatory. The reviewer agent will reject the PR if either is missing.
+
+**Rule** (user-stated 2026-06-05): validation to a resource is **always via the permission**, never via the role. `[Authorize(Policy = Permissions.X)]` is the only authorization attribute allowed on a controller; `[Authorize(Roles = "Admin")]`, `RequireRole(...)`, and `if (user.Role == ...)` are forbidden.
 
 ## The "channel" tripwire
 

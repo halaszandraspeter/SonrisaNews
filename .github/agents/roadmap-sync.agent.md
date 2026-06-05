@@ -56,7 +56,7 @@ In `2-stack.md`:
 
 **Resolved** (locked in):
 - **.NET version**: 10 LTS for MVP; .NET 11 considered post-MVP. <!-- done: 2026-06-04 -->
-- **RBAC**: Casbin.NET. <!-- done: 2026-06-04 -->
+- **RBAC**: DB-driven (5 tables: `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`). Validation is by permission, never by role (user rule, 2026-06-05). <!-- done: 2026-06-04 -->
 - …
 ```
 

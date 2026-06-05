@@ -61,9 +61,10 @@ Each item links to the specific line and includes a one-line fix suggestion. If 
 ### RBAC
 
 - [ ] Every new or changed action has `[Authorize(Policy = "...")]` with a constant from `Permissions.cs`
-- [ ] The policy is granted in `rbac_policy.csv` to at least one role
-- [ ] If the policy is new, two unit tests exist (one positive, one negative) per the tripwire
-- [ ] No `[Authorize(Roles = "Admin")]` (use a policy)
+- [ ] The permission exists in the `Permissions` table AND is granted to at least one role in `RolePermissions` (use the `rbac-audit` tool to verify)
+- [ ] If the permission is new, two unit tests exist (one positive, one negative) per the tripwire
+- [ ] **No `[Authorize(Roles = "Admin")]`, no `RequireRole("Admin")`, no `if (user.Role == ...)`** — validation is always via the permission (user rule, 2026-06-05)
+- [ ] No Casbin / CSV policy file is introduced or re-introduced (the model is DB-driven)
 - [ ] Admin actions go through the audit log filter (not manual `IAuditLog.RecordAsync` calls scattered around)
 
 ### Async safety
@@ -120,5 +121,5 @@ Each item links to the specific line and includes a one-line fix suggestion. If 
 ## When to escalate
 
 - **The diff breaks the build.** Don't include it in the review as a "should fix" — say "this won't build, fix and resubmit" up front.
-- **The diff changes the security model.** Stop and tell the user. Don't approve a change to `rbac_policy.csv` without a security review.
+- **The diff changes the security model.** Stop and tell the user. Don't approve a change to the role/permission tables (`Roles`, `Permissions`, `UserRoles`, `RolePermissions`) or to the seed data without a security review.
 - **You find a real bug, not a style issue.** Say so clearly. Don't bury it in nits.

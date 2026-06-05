@@ -125,7 +125,7 @@ A channel-mode matrix is shown in the alert editor: rows = alerts, columns = cha
 
 ## 3. Admin features (MVP)
 
-A separate `/admin` area. Role: `Admin`. Only seeded users with the role can access (bootstrap admin = first user or env var). RBAC implementation details in `2-stack.md`.
+A separate `/admin` area. Guarded by admin-only permissions (e.g. `Users.Read.Any`, `Sources.Write.Any`). Only seeded users with a row in `UserRoles` linking to the `Admin` role can access (bootstrap admin = first user or env var). RBAC implementation details in `2-stack.md`.
 
 ### 3.1 Data source management
 
@@ -148,8 +148,8 @@ Admin-managed only in MVP. Roadmap: hybrid (users can request a source, admin ap
 ### 3.2 User management
 
 - Search users by email/display name.
-- View: alerts, channels, last login, signup date, role.
-- Actions: change role, suspend (login blocked, alerts paused), restore, hard delete (with 7-day soft-delete window for accidental clicks).
+- View: alerts, channels, last login, signup date, roles (via the `UserRoles` join — one user can have multiple roles).
+- Actions: change role (insert/delete a `UserRoles` row), suspend (login blocked, alerts paused), restore, hard delete (with 7-day soft-delete window for accidental clicks).
 - Audit log of admin actions.
 
 ### 3.3 System health / observability
@@ -175,7 +175,7 @@ This is a one-page view. We use free observability in MVP — structured logs to
 
 These are the entities we will create. Naming is a proposal; final names go in `models/`.
 
-- **User**: id, email, password_hash, display_name, role, time_zone, created_at, status.
+- **User**: id, email, password_hash, display_name, time_zone, created_at, status, must_change_password. (The user's role is a row in `UserRoles`; there is no `Role` column on `User`.)
 - **EmailVerification** / **PasswordResetToken**: one-shot tokens, expiry, used_at.
 - **Channel**: id, user_id, type (`email` | `slack`), destination, verified, quiet_hours_start (nullable, local time), quiet_hours_end (nullable, local time), created_at.
 - **Alert**: id, user_id, name, type (`news` | `market` | `disaster`), enabled, filters (typed JSON per alert type), created_at, updated_at.
