@@ -7,14 +7,14 @@ Sonrisa News lets users subscribe to alerts about things that matter — RSS new
 
 ## Status
 
-🚧 **24-hour MVP in progress.** Planning complete; bootstrap is done; **wave 2 (database + persistence skeleton) is the latest shipped milestone**.
+🚧 **24-hour MVP in progress.** Planning complete; **wave 4 (channel abstraction: email + Slack, verify flow) is the latest shipped milestone**.
 
 | Wave | Title | Status |
 |---|---|---|
-| 1 | Scaffold + plumbing | ✅ Shipped (bootstrap) |
-| 2 | Database + persistence skeleton | ✅ Shipped <!-- done: 2026-06-04, see PR pending --> |
-| 3 | Auth + RBAC | ⬜ Not started |
-| 4 | Channel abstraction | ⬜ Not started |
+| 1 | Scaffold + plumbing | ✅ Shipped (2026-06-04) |
+| 2 | Database + persistence skeleton | ✅ Shipped (2026-06-04) |
+| 3 | Auth + RBAC (DB-driven) | ✅ Shipped (2026-06-05) |
+| 4 | Channel abstraction | ✅ Shipped (2026-06-05) |
 | 5 | Alert CRUD + filters | ⬜ Not started |
 | 6 | News poller + matcher | ⬜ Not started |
 | 7 | yfinance sidecar + market poller | ⬜ Not started |
@@ -23,6 +23,15 @@ Sonrisa News lets users subscribe to alerts about things that matter — RSS new
 | 10 | Admin | ⬜ Not started |
 | 11 | E2E + observability + polish | ⬜ Not started |
 | 12 | Release prep | ⬜ Not started |
+
+Detailed handoffs (what landed, what was deferred, and what's still open) live in [`docs/handoffs/`](docs/handoffs/):
+
+- [`wave1-handoff.md`](docs/handoffs/wave1-handoff.md) — scaffold + the 12-file UI/backend review follow-up pass
+- [`wave2-to-future.md`](docs/handoffs/wave2-to-future.md) — schema + 21 deferred items routed to future waves
+- [`wave3-handoff.md`](docs/handoffs/wave3-handoff.md) — DB-driven RBAC (5 tables, 16 permissions, 26 grants)
+- [`wave3-frontend-handoff.md`](docs/handoffs/wave3-frontend-handoff.md) — auth client, sign-in / sign-up pages, `AuthGate`
+- [`wave4-handoff.md`](docs/handoffs/wave4-handoff.md) — `EmailChannel` + `SlackChannel`, 24h verification expiry, `Notification.DedupeKey`
+- [`wave4-frontend-followup.md`](docs/handoffs/wave4-frontend-followup.md) — `AddChannelDialog` polish + 10 deferred NITs
 
 The locked planning documents live in [`docs/roadmap/`](docs/roadmap/):
 
