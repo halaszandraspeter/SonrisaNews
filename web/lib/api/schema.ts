@@ -46,6 +46,18 @@ export type paths = {
   "/api/v1/health": {
     get: operations["HealthController_Get"];
   };
+  "/api/v1/channels": {
+    post: operations["ChannelsController_Create"];
+  };
+  "/api/v1/channels/{id}/verify/start": {
+    post: operations["ChannelsController_StartVerify"];
+  };
+  "/api/v1/channels/{id}/verify/confirm": {
+    post: operations["ChannelsController_ConfirmVerify"];
+  };
+  "/api/v1/channels/{id}": {
+    delete: operations["ChannelsController_Delete"];
+  };
 };
 
 export type operations = {
@@ -166,6 +178,119 @@ export type operations = {
       };
     };
   };
+  // --- ChannelsController --------------------------------------------------
+  ChannelsController_Create: {
+    responses: {
+      /** 201 — channel created; verification required before use. */
+      201: {
+        content: {
+          "application/json": ChannelResponse;
+        };
+      };
+      /** 400 — invalid channel type or malformed destination. */
+      400: unknown;
+      /** 401 — not authenticated. */
+      401: unknown;
+      /** 403 — lacks permission. */
+      403: unknown;
+    };
+    requestBody: {
+      content: {
+        "application/json": CreateChannelRequest;
+      };
+    };
+  };
+  ChannelsController_StartVerify: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      /** 200 — verification challenge issued. */
+      200: {
+        content: {
+          "application/json": VerifyStartResponse;
+        };
+      };
+      /** 400 — channel type not supported or implementation missing. */
+      400: unknown;
+      /** 401 — not authenticated. */
+      401: unknown;
+      /** 403 — lacks permission. */
+      403: unknown;
+      /** 404 — channel not found. */
+      404: unknown;
+    };
+  };
+  ChannelsController_ConfirmVerify: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      /** 204 — verification confirmed; channel is now verified. */
+      204: never;
+      /** 400 — verification failed (wrong code or unsupported type). */
+      400: unknown;
+      /** 401 — not authenticated. */
+      401: unknown;
+      /** 403 — lacks permission. */
+      403: unknown;
+      /** 404 — channel not found. */
+      404: unknown;
+    };
+    requestBody: {
+      content: {
+        "application/json": VerifyConfirmRequest;
+      };
+    };
+  };
+  ChannelsController_Delete: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      /** 204 — channel deleted. */
+      204: never;
+      /** 401 — not authenticated. */
+      401: unknown;
+      /** 403 — lacks permission. */
+      403: unknown;
+      /** 404 — channel not found. */
+      404: unknown;
+    };
+  };
+};
+
+// --- Channel DTOs --------------------------------------------------------
+
+/** Body for `POST /api/v1/channels`. */
+export type CreateChannelRequest = {
+  Type: string;
+  Destination: string;
+};
+
+/** Response shape for `POST /api/v1/channels`. */
+export type ChannelResponse = {
+  Id: string;
+  Type: string;
+  Destination: string;
+  Verified: boolean;
+  CreatedAt: string;
+};
+
+/** Response shape for `POST /api/v1/channels/{id}/verify/start`. */
+export type VerifyStartResponse = {
+  Code: string;
+};
+
+/** Body for `POST /api/v1/channels/{id}/verify/confirm`. */
+export type VerifyConfirmRequest = {
+  Code: string;
 };
 
 // --- DTOs ----------------------------------------------------------------
