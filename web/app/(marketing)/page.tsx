@@ -1,12 +1,14 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
+import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
 /**
  * Public marketing landing page. Server Component — no client state.
- * Wave 1: hero + "how it works" stub. Real copy lands in wave 11 (polish).
+ * The primary CTA points at /signup; the secondary link points at
+ * /signin for returning users. Real copy lands in wave 11 (polish).
  */
 export default function MarketingHomePage() {
   return (
@@ -22,16 +24,14 @@ export default function MarketingHomePage() {
           </Typography>
         </Stack>
 
-        <Box>
-          <Button variant="contained" size="large" aria-disabled disabled>
-            Sign up (coming soon)
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: "center" }}>
+          <Button variant="contained" size="large" href="/signup">
+            Sign up
           </Button>
-        </Box>
-
-        <Typography variant="body2" color="text.secondary">
-          Status: wave-1 skeleton. The API is reachable at port 5080, the Aspire dashboard is at
-          port 15000.
-        </Typography>
+          <Link href="/signin" variant="body2">
+            Already have an account? Sign in
+          </Link>
+        </Stack>
       </Stack>
     </Container>
   );

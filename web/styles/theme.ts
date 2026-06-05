@@ -1,10 +1,13 @@
-"use client";
-
 import { createTheme } from "@mui/material/styles";
 
 /**
  * MUI v9 theme. Wave 1 ships a single light theme; the dark theme is
  * added in wave 11 (polish).
+ *
+ * No `"use client"` — `createTheme` returns a plain object that is
+ * safe to import from a Server Component, and `<ThemeProvider>`
+ * (the only consumer) is already inside a client component
+ * (`AppProviders.tsx`).
  */
 export const theme = createTheme({
   cssVariables: true,

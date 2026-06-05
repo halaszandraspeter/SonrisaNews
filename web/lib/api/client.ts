@@ -1,5 +1,6 @@
-import createClient from "openapi-fetch";
+import createClient, { type Middleware } from "openapi-fetch";
 
+import { useAuthStore } from "@/lib/auth/authStore";
 import type { paths } from "@/lib/api/schema";
 
 /**
@@ -7,7 +8,137 @@ import type { paths } from "@/lib/api/schema";
  *
  * `baseUrl` is `/` because Next.js rewrites `/api/*` to the backend
  * (see `next.config.ts`). Same-origin in dev and prod, no CORS in dev.
+ *
+ * Two middlewares run on every request:
+ *   - <c>authMiddleware</c> — injects <c>Authorization: Bearer …</c>
+ *     when the in-memory store has a token. The store is read on
+ *     every call (no closure capture) so a sign-in / sign-out
+ *     anywhere in the tree is reflected on the next request.
+ *   - <c>refreshOnUnauthorizedMiddleware</c> — on a 401, calls
+ *     <c>POST /api/v1/auth/refresh</c> once. If the refresh succeeds
+ *     and the response carries a fresh access token, the original
+ *     request is retried with the new token. If the refresh fails,
+ *     the store is cleared and the original 401 is returned to the
+ *     caller (so the caller's <c>useQuery</c> / <c>useMutation</c>
+ *     can redirect to <c>/signin</c>).
+ *
+ * The body-replay problem: a <c>Request</c> object is a stream; once
+ * <c>openapi-fetch</c> reads the body to send the request, the
+ * stream is consumed. Replaying <c>fetch(request, { headers })</c>
+ * may or may not work depending on how the body was constructed
+ * (a <c>Blob</c> body is fine; a <c>string</c> body is re-readable;
+ * a <c>ReadableStream</c> body is not). The <c>authMiddleware</c>
+ * snapshots the body bytes up-front into a <c>WeakMap</c>; the
+ * <c>refreshOnUnauthorizedMiddleware</c> reads the snapshot to
+ * build the retried <c>Request</c> with a fresh body.
  */
+const requestBodies = new WeakMap<Request, Uint8Array | undefined>();
+
+const authMiddleware: Middleware = {
+  async onRequest({ request }) {
+    // Snapshot the body so the 401-refresh path can replay it.
+    // <c>clone()</c> is required because <c>request.arrayBuffer()</c>
+    // consumes the body stream; the original request is what
+    // <c>openapi-fetch</c> sends.
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      try {
+        const cloned = request.clone();
+        const buf = await cloned.arrayBuffer();
+        requestBodies.set(request, new Uint8Array(buf));
+      } catch {
+        // Body is not re-readable (e.g. a streaming body). We
+        // can't replay; the 401-refresh path will return the
+        // original 401 to the caller.
+        requestBodies.set(request, undefined);
+      }
+    }
+
+    const token = useAuthStore.getState().accessToken;
+    if (token !== null) {
+      request.headers.set("Authorization", `Bearer ${token}`);
+    }
+    return request;
+  },
+};
+
+const refreshOnUnauthorizedMiddleware: Middleware = {
+  async onResponse({ request, response }) {
+    // Only intercept 401s. Other status codes (403, 404, 409, …) are
+    // the caller's problem.
+    if (response.status !== 401) return response;
+
+    // Don't try to refresh the refresh endpoint itself — that would
+    // loop. The /api/v1/auth/refresh 401 means "your cookie is
+    // dead, go sign in". <c>request.url</c> is resolved against the
+    // document origin (the same-origin rewrite from
+    // <c>next.config.ts</c>) and produces an absolute URL.
+    if (new URL(request.url, location.origin).pathname === "/api/v1/auth/refresh") {
+      useAuthStore.getState().clearSession();
+      return response;
+    }
+
+    try {
+      const refreshed = await fetch("/api/v1/auth/refresh", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!refreshed.ok) {
+        useAuthStore.getState().clearSession();
+        return response;
+      }
+      const body = (await refreshed.json()) as { AccessToken: string };
+      useAuthStore.getState().setAccessToken(body.AccessToken);
+
+      // Retry the original request with the fresh token and the
+      // snapshotted body. Build a new <c>Request</c> from scratch
+      // so the body stream is fresh — passing the original
+      // <c>Request</c> object to a second <c>fetch()</c> may
+      // silently drop a consumed body.
+      const retriedHeaders = new Headers(request.headers);
+      retriedHeaders.set("Authorization", `Bearer ${body.AccessToken}`);
+
+      const snapshottedBody = requestBodies.get(request);
+      const retryInit: RequestInit = {
+        method: request.method,
+        headers: retriedHeaders,
+        credentials: request.credentials,
+        mode: request.mode,
+        cache: request.cache,
+        redirect: request.redirect,
+        referrer: request.referrer,
+        referrerPolicy: request.referrerPolicy,
+        integrity: request.integrity,
+        keepalive: request.keepalive,
+        signal: request.signal,
+      };
+
+      if (snapshottedBody !== undefined) {
+        // Wrap the bytes in a <c>Blob</c> so the TypeScript lib
+        // (which types <c>BodyInit</c> as a strict union) accepts
+        // the assignment. Copy into a fresh <c>ArrayBuffer</c>
+        // first so the <c>Uint8Array<ArrayBufferLike></c> view
+        // narrows to <c>Uint8Array<ArrayBuffer></c>, which the
+        // <c>BlobPart</c> union requires.
+        const buf = new ArrayBuffer(snapshottedBody.byteLength);
+        new Uint8Array(buf).set(snapshottedBody);
+        retryInit.body = new Blob([buf]);
+      }
+
+      return new Response(
+        await (await fetch(new Request(request.url, retryInit))).body,
+      );
+    } catch {
+      useAuthStore.getState().clearSession();
+      return response;
+    }
+  },
+};
+
 export const apiClient = createClient<paths>({
   baseUrl: "/",
 });
+
+// Middleware ordering matters: the request side adds the bearer,
+// the response side catches the 401. Both run on every call.
+apiClient.use(authMiddleware);
+apiClient.use(refreshOnUnauthorizedMiddleware);
