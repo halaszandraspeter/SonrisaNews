@@ -35,5 +35,11 @@ internal class NotificationConfiguration : IEntityTypeConfiguration<Notification
 
         builder.HasIndex(n => n.MatchId)
             .HasDatabaseName("IX_Notifications_MatchId");
+
+        // Idempotency: the dispatcher (wave 8) checks this index before sending
+        // so a re-run after a crash does not double-deliver.
+        builder.HasIndex(n => new { n.ChannelId, n.DedupeKey })
+            .IsUnique()
+            .HasDatabaseName("UX_Notifications_ChannelId_DedupeKey");
     }
 }

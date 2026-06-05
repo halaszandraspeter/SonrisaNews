@@ -27,5 +27,15 @@ public class Notification
     /// <summary>Last delivery error. Cleared on a successful retry.</summary>
     public string? Error { get; set; }
 
+    /// <summary>
+    /// Idempotency key for "don't double-send the same match to the same channel".
+    /// Default = <c>Match.Id</c> (per the MVP checklist Q8 default). The dispatcher
+    /// (wave 8) looks up a row by <c>(ChannelId, DedupeKey)</c> before sending —
+    /// a re-run after a crash hits the index and skips the send.
+    /// Unique per channel: two notifications to the same channel with the same
+    /// key are treated as the same logical send.
+    /// </summary>
+    public Guid DedupeKey { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
