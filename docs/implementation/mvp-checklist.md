@@ -1,7 +1,8 @@
 # Sonrisa News — MVP Implementation Checklist
 
 > **Scope**: the 24-hour build. Source of truth: [`1-features.md`](../roadmap/1-features.md), [`2-stack.md`](../roadmap/2-stack.md), [`3-ai-environment.md`](../roadmap/3-ai-environment.md).
-> **Status**: planning + bootstrap done. **Wave 2 (database + persistence skeleton) shipped on 2026-06-04**; the build-order table below shows per-wave status. This doc tracks the build order, the audit of the current repo, and the tripwires that apply to every step.
+> **Status**: planning + bootstrap done. **Waves 1, 2, 3, and 4 shipped between 2026-06-04 and 2026-06-05.** The build-order table below shows per-wave status. This doc tracks the build order, the audit of the current repo, and the tripwires that apply to every step.
+> **Last updated**: 2026-06-05 (wave 4 backend handoff).
 > **User has final word** on every decision below. If a wave is too large, the wave splits; if a wave is too small, the wave merges.
 
 ---
@@ -65,10 +66,10 @@ Each wave is sized for **1–2 hours** of focused work. The first three are scaf
 
 | # | Wave | Goal | First green test |
 |---|---|---|---|
-| 1 | **Scaffold + plumbing** | Solution builds, AppHost boots, "Hello world" round trip | `dotnet build` passes, `pnpm build` passes, AppHost dashboard reachable at `:15000` | ✅ |
-| 2 | **Database + persistence skeleton** | EF Core + SQLite + first migration applies; `dotnet ef` is wired | `dotnet ef database update` against `:memory:` succeeds, integration test reads/writes a row | ✅ |
-| 3 | **Auth + RBAC** | Sign-up, sign-in, refresh, `[Authorize]` works, RBAC is DB-driven (5 tables, seeded), audit tool runs | xUnit: `SignUp_DuplicateEmail_Returns409`; rbac-audit tool exits 0 | ✅ (backend) · ✅ (frontend 2026-06-05) |
-| 4 | **Channel abstraction** | `INotificationChannel`, `EmailChannel` (via MailHog), `SlackChannel`, channel verify flow | xUnit: `EmailChannel_SendAsync_HitsSmtpServer` (with a fake `SmtpClient`); contract test for both |
+| 1 | **Scaffold + plumbing** | Solution builds, AppHost boots, "Hello world" round trip | `dotnet build` passes, `pnpm build` passes, AppHost dashboard reachable at `:15000` | ✅ (2026-06-04) |
+| 2 | **Database + persistence skeleton** | EF Core + SQLite + first migration applies; `dotnet ef` is wired | `dotnet ef database update` against `:memory:` succeeds, integration test reads/writes a row | ✅ (2026-06-04) |
+| 3 | **Auth + RBAC** | Sign-up, sign-in, refresh, `[Authorize]` works, RBAC is DB-driven (5 tables, seeded), audit tool runs | xUnit: `SignUp_DuplicateEmail_Returns409`; rbac-audit tool exits 0 | ✅ (2026-06-05) |
+| 4 | **Channel abstraction** | `INotificationChannel`, `EmailChannel` (via MailHog), `SlackChannel`, channel verify flow | xUnit: `EmailChannel_SendAsync_HitsSmtpServer` (with a fake `SmtpClient`); contract test for both | ✅ (2026-06-05) |
 | 5 | **Alert CRUD + filters** | Alert entity, filters JSON per type, CRUD endpoints, channel-mode matrix | xUnit: `CreateAlert_NewsWithKeywordFilter_PersistsFilter`; Playwright: create an alert in the UI |
 | 6 | **News poller + matcher** | RSS `IDataSource`, matcher engine, `Match` audit row, dispatcher wired | xUnit: `Matcher_NewsAlertWithKeywordFilter_MatchesWhenTitleContains` (red → green) |
 | 7 | **yfinance sidecar + market poller** | FastAPI `GET /quote` + `/quotes`, `YfinanceClient`, `MarketPoller`, market matcher | pytest: `test_quote_returns_expected_shape`; xUnit: `MarketMatcher_PercentChangeInWindow_TriggersAlert` |
@@ -114,6 +115,8 @@ curl http://localhost:5080/healthz                     # returns 200
 ```
 
 **Agent**: Stack Doc Researcher (to verify Next.js 16 + MUI v9 setup commands), then TDD C# Implementer + TDD Next.js Implementer for the scaffolds.
+
+**Status**: ✅ Shipped 2026-06-04. The full scaffold landed in `f2aa289 Backend scaffold` and `ff4d130 Frontend scaffold`. `dotnet build` clean, `pnpm build` clean (7 routes prerendered), AppHost dashboard reachable on `:15000`, `GET /healthz` returns 200. Two follow-up review passes (one UI, one backend) applied directly to the working tree as part of the wave — the 12 file-fix follow-up is documented in [`docs/handoffs/wave1-handoff.md`](../handoffs/wave1-handoff.md) under "Wave 1 — UI fixes follow-up" and "Wave 1 — Backend fixes follow-up". Open items: the `paths = Record<string, never>` placeholder in `web/lib/api/schema.ts` is replaced by the first real `pnpm generate:api` run in wave 3+; the `(app)` and `(admin)` redirect-in-layout was replaced by a real `AuthGate` in wave 3.
 
 ---
 
@@ -188,6 +191,8 @@ curl http://localhost:5080/admin/users -H "Authorization: Bearer <admin-token>" 
 
 **Agent**: TDD C# Implementer (auth) + TDD Next.js Implementer (signin/signup) + Backend Reviewer (PR-time).
 
+**Status**: ✅ Shipped 2026-06-05. The wave 3 backend landed in `ffdcab5 Auth + RBAC backend` and the frontend in `526f6e5 auth frontend` (+ `2c577de signIn front test`, `e50eaf2 wave 3 frontend handoff`). RBAC is **DB-driven** (5 tables: `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermissions`) — the Casbin CSV is gone. 16 permission constants in `backend/src/SonrisaNews.Domain/Auth/Permissions.cs`; 26 role↔permission grants seeded by `20260605051544_AddRbacCatalog`. The `User.Role` column was removed; role is now a row in `UserRoles`. User rule 2026-06-05 ("validation is by permission, never by role") is enforced in three layers (no `Role` claim in the JWT, no `[Authorize(Roles = ...)]` allowed, handler answers only the coarse "may a user with these roles perform this action" question). 45 tests pass; the `RbacAudit` tool is real (reads the DB, not a CSV) and exits 0 with 15 expected orphan permissions (all future-wave). Full detail in [`docs/handoffs/wave3-handoff.md`](../handoffs/wave3-handoff.md) and [`docs/handoffs/wave3-frontend-handoff.md`](../handoffs/wave3-frontend-handoff.md). The `EmailVerification.Token` and `PasswordResetToken.Token` plaintext storage concern raised in `wave2-to-future.md` §2 is **still open** — the wave 3 auth controller writes plaintext, the wave 3.1+ (or wave 11 polish) PR must hash before insert (Argon2id or HMAC-SHA256, matching the `RefreshToken.TokenHash` pattern).
+
 ---
 
 ### Wave 4 — Channel abstraction (1–2h)
@@ -220,6 +225,8 @@ dotnet test backend/SonrisaNews.UnitTests --filter Category=Channels
 ```
 
 **Agent**: TDD C# Implementer + TDD Next.js Implementer (Add Channel dialog).
+
+**Status**: ✅ Shipped 2026-06-05. Backend landed in `866b16b channel backend`; frontend landed in `9a015d2 channel frontend`. 66 tests pass (0 failed, 0 skipped) — 18 added in this wave across `EmailChannelTests` (11), `SlackChannelTests` (7), and `ChannelDiRegistrationTests` (3). The wave shipped the **full** scope from `add-a-channel`: both channels implement the `INotificationChannel` interface end-to-end (`Type`, `StartVerificationAsync`, `VerifyAsync`, `SendAsync`), are registered in DI via `AddSonrisaNewsHttpClient()` (fixes a latent DI crash — `EmailChannel` and `SlackChannel` take `IHttpClientFactory` which was never registered), and have unit tests for happy path + verification failure + expiry. Verification codes expire after 24h via the new `VerificationChallenge.ExpiresAt` + `ChannelDefaults.VerificationTtl`. `Notification.DedupeKey` (Guid) + unique composite index `UX_Notifications_ChannelId_DedupeKey` added via `20260605074133_AddNotificationDedupeKey` migration (Q8 from §4 answered). Frontend `AddChannelDialog` shipped with a 4-step UX (type → destination → challenge code → confirmation). Deferred items are tracked in [`docs/handoffs/wave4-handoff.md`](../handoffs/wave4-handoff.md) §2.1–§2.5 and [`docs/handoffs/wave4-frontend-followup.md`](../handoffs/wave4-frontend-followup.md); the two that are still "open as a code change" are: (a) the `appsettings.json.new` stale file to be deleted before any open PR, and (b) the MailKit/MimeKit `NU1902` advisories to bump to 4.9.0+ in wave 8 (or a pre-wave-8 bump PR). The dispatcher-side "block `SendAsync` when `Channel.Verified = false`" contract is the wave 8 implementer's responsibility, not wave 4.
 
 ---
 
