@@ -468,9 +468,8 @@ export type operations = {
   };
   /**
    * "Test this alert" — re-runs the matcher against the most recent
-   * 50 events for the alert. The matcher lands in wave 6; until
-   * then the backend returns a 501 (Not Implemented) and the
-   * frontend renders "Test runs after wave 6 ships".
+   * 50 events for the alert. Read-only preview; no <c>Match</c>
+   * or <c>Notification</c> rows are inserted.
    */
   AlertsController_Test: {
     parameters: {
@@ -481,14 +480,13 @@ export type operations = {
     responses: {
       200: {
         content: {
-          "application/json": AlertTestResponse;
+          "application/json": TestAlertHit[];
         };
       };
       400: unknown;
       401: unknown;
       403: unknown;
       404: unknown;
-      501: unknown;
     };
   };
 };
@@ -564,23 +562,20 @@ export type AlertChannelModeResponse = {
 };
 
 /**
- * Response shape for `POST /api/v1/alerts/{id}/test`. Each match
- * is the would-have-fired event shape: title, source, occurred
- * time, and a snippet of body. The matcher (wave 6) populates
- * this; until then the backend returns 501.
+ * One hit in the "Test this alert" preview. The backend's
+ * <c>TestAlertHitResponse</c> (a C# record of
+ * <c>(Guid EventId, string Summary)</c>). The
+ * <c>EventId</c> is for deep-linking to the source event (the
+ * activity tab lands in wave 11); the <c>Summary</c> is a single
+ * line of human-readable text extracted from the event's
+ * payload (title → summary → description, in that order).
+ *
+ * The response is a flat list, not a wrapped object: the
+ * caller computes <c>MatchedCount</c> from <c>.length</c>.
  */
-export type AlertTestResponse = {
-  AlertId: string;
-  MatchedCount: number;
-  Matches: AlertTestMatch[];
-};
-
-export type AlertTestMatch = {
+export type TestAlertHit = {
   EventId: string;
-  Title: string;
-  Source: string;
-  OccurredAt: string;
-  Snippet: string;
+  Summary: string;
 };
 
 /** String form of the <c>AlertType</c> C# enum (System.Text.Json + JsonStringEnumConverter). */

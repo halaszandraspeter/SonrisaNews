@@ -21,10 +21,10 @@ import { apiClient } from "@/lib/api/client";
 import type {
   AlertChannelModeResponse,
   AlertResponse,
-  AlertTestResponse,
   ChannelResponse,
   CreateAlertRequest,
   SetChannelModeRequest,
+  TestAlertHit,
   UpdateAlertRequest,
 } from "@/lib/api/schema";
 
@@ -134,10 +134,20 @@ export const removeChannelMode = (
     }),
   );
 
-// --- Test alert (stub until wave 6) ------------------------------------
+// --- Test alert (read-only preview) ------------------------------------
 
-export const testAlert = (alertId: string): Promise<ApiResult<AlertTestResponse>> =>
-  unwrap<AlertTestResponse>(
+/**
+ * Re-runs the matcher against the most recent 50 events for
+ * the alert. Returns the "would have fired" list — a flat
+ * array of <c>{EventId, Summary}</c> hits (the backend's
+ * <c>TestAlertHitResponse[]</c>). The endpoint is
+ * <c>POST /api/v1/alerts/{id}/test</c> (the verb is POST because
+ * the matcher is invoked server-side; the response is a list
+ * of previews, not a server-side state change). Authz is
+ * <c>Alerts.Test.Own</c>.
+ */
+export const testAlert = (alertId: string): Promise<ApiResult<TestAlertHit[]>> =>
+  unwrap<TestAlertHit[]>(
     apiClient.POST("/api/v1/alerts/{id}/test", { params: { path: { id: alertId } } }),
   );
 

@@ -263,7 +263,9 @@ export function AlertEditorDialog({
 
           <Box>
             <Typography variant="caption" color="text.secondary">
-              Alerts are inert until the matcher wires them up in wave 6.
+              Saved alerts start matching against polled events on the next
+              worker tick (every 2 minutes). The <strong>Test</strong> button
+              on the list previews matches without firing notifications.
             </Typography>
           </Box>
         </Stack>

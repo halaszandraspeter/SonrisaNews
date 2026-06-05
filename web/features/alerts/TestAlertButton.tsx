@@ -1,9 +1,12 @@
 "use client";
 
 /**
- * "Test this alert" button. Client-side leaf that owns the test
- * dialog open-state. The matcher lands in wave 6; the button is
- * wired now so the test can be re-run as soon as wave 6 lands.
+ * "Test this alert" button. Client-side leaf that owns the
+ * dialog open-state. The dialog re-runs the matcher against
+ * the most recent 50 events and shows the would-have-fired
+ * list. The matcher is read-only — no <c>Match</c> or
+ * <c>Notification</c> rows are written, so the user can poke
+ * at the button freely.
  */
 
 import { useState } from "react";

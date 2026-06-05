@@ -5,8 +5,8 @@
  * <c>AlertsEditorHost</c> so the page-header "New alert"
  * button and the per-row "Edit" actions in <c>AlertList</c>
  * share a single editor dialog. The page itself stays a
- * Server Component (h1, description, and the "Wave 5" banner
- * are static).
+ * Server Component (h1, description, and the static banner
+ * copy are server-rendered).
  */
 
 import Stack from "@mui/material/Stack";

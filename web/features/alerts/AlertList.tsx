@@ -128,8 +128,8 @@ function EmptyState() {
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Use the <strong>New alert</strong> button above to create your first
-            one. Alerts are inert until the matcher wires them up in wave 6, so
-            you can experiment freely.
+            one. Alerts start matching against polled news events the moment
+            they&apos;re enabled.
           </Typography>
         </Stack>
       </CardContent>

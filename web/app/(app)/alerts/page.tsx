@@ -7,10 +7,10 @@ import Typography from "@mui/material/Typography";
 import { AlertsPageBody } from "@/features/alerts/AlertsPageBody";
 
 /**
- * The post-sign-in dashboard. Wave 5 ships the full alert list
- * (grouped by type, with edit/delete/test actions) plus the
- * "add channel" + "new alert" buttons in the page header. The
- * channel-mode matrix lives at <c>/alerts/{id}</c>.
+ * The post-sign-in dashboard. Renders the alert list (grouped
+ * by type, with edit / delete / test actions), the page-header
+ * "New alert" + "Add channel" buttons, and the channel-mode
+ * matrix link on the per-alert detail page.
  *
  * Server Component — the auth gate runs in the parent
  * <c>(app)/layout.tsx</c> via <c>AuthGate</c>. The interactive
@@ -26,14 +26,17 @@ export default function AlertsPage() {
             Your alerts
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage your alerts and the channels they deliver to. Alerts are inert
-            until the matcher wires them up in wave 6.
+            Manage your alerts and the channels they deliver to. Alerts are
+            matched against polled events every two minutes; click an
+            alert&apos;s name to open the channel-mode matrix, or hit{" "}
+            <strong>Test</strong> to preview what would fire right now.
           </Typography>
         </Stack>
         <Alert severity="info">
-          <AlertTitle>Wave 5 — alert CRUD + filters</AlertTitle>
-          Create, edit, enable, and delete alerts. Click an alert&apos;s row to
-          open the channel-mode matrix.
+          <AlertTitle>Wave 6 — news poller + matcher</AlertTitle>
+          Alerts now run against polled news events. Create, edit, enable, and
+          delete alerts. The <strong>Test</strong> button previews matches
+          against the last 50 events without firing any notifications.
         </Alert>
         <AlertsPageBody />
       </Stack>

@@ -38,10 +38,10 @@ import {
 import type {
   AlertChannelModeResponse,
   AlertResponse,
-  AlertTestResponse,
   ChannelResponse,
   CreateAlertRequest,
   SetChannelModeRequest,
+  TestAlertHit,
   UpdateAlertRequest,
 } from "@/lib/api/schema";
 
@@ -157,15 +157,9 @@ export function useRemoveChannelModeMutation(alertId: string) {
 }
 
 export function useTestAlertMutation(alertId: string) {
-  return useMutation<AlertTestResponse, Error, void>({
+  return useMutation<TestAlertHit[], Error, void>({
     mutationFn: async () => {
       const result = await testAlert(alertId);
-      // The matcher lands in wave 6; until then the endpoint
-      // returns 501. Treat that as the "not yet wired" signal,
-      // not a generic error.
-      if (result.kind === "http" && result.status === 501) {
-        throw new MatcherNotWiredError();
-      }
       if (result.kind !== "ok") throw new Error(toMessage(result));
       return result.data;
     },
@@ -185,18 +179,6 @@ export class ValidationError extends Error {
     super("Validation failed");
     this.name = "ValidationError";
     this.fields = fields;
-  }
-}
-
-/**
- * Thrown by the test-alert mutation when the backend returns 501
- * (matcher not yet implemented). The Test dialog catches this and
- * shows the "wired in wave 6" copy.
- */
-export class MatcherNotWiredError extends Error {
-  constructor() {
-    super("Matcher not yet wired");
-    this.name = "MatcherNotWiredError";
   }
 }
 
