@@ -30,4 +30,14 @@ public class Alert
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    // Entity equality is by Id (wave-2 review item #15). EF Core tracks
+    // entities by Id within a single context, but cross-context
+    // comparisons (e.g. the alert service comparing a freshly-loaded
+    // entity to a request DTO's projected copy) need reference equality
+    // to work. Using Id as the equality key means two distinct references
+    // to the same row compare equal.
+    public override bool Equals(object? obj) => obj is Alert other && Id == other.Id;
+
+    public override int GetHashCode() => Id.GetHashCode();
 }

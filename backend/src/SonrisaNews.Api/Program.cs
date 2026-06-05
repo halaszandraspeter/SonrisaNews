@@ -1,6 +1,7 @@
 using Scalar.AspNetCore;
 using Serilog;
 using SonrisaNews.Infrastructure;
+using SonrisaNews.Infrastructure.Alerts;
 using SonrisaNews.Infrastructure.Auth;
 using SonrisaNews.Shared;
 using SonrisaNews.Shared.Hosting;
@@ -22,6 +23,7 @@ builder.Services
     .Configure<AdminSeederOptions>(builder.Configuration.GetSection(AdminSeederOptions.SectionName));
 
 builder.Services.AddSonrisaNewsInfrastructure();
+builder.Services.AddSonrisaNewsAlerts();
 builder.Services.AddSonrisaNewsAuth(builder.Configuration);
 builder.Services.AddSonrisaNewsPolicies();
 

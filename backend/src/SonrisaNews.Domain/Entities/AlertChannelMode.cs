@@ -13,4 +13,10 @@ public class AlertChannelMode
     public DeliveryMode Mode { get; set; } = DeliveryMode.Realtime;
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    // Entity equality is by the composite key (wave-2 review item #15).
+    public override bool Equals(object? obj) =>
+        obj is AlertChannelMode other && AlertId == other.AlertId && ChannelId == other.ChannelId;
+
+    public override int GetHashCode() => HashCode.Combine(AlertId, ChannelId);
 }
