@@ -2,8 +2,8 @@
 
 > **Scope**: the 24-hour build. Source of truth: [`1-features.md`](../roadmap/1-features.md), [`2-stack.md`](../roadmap/2-stack.md), [`3-ai-environment.md`](../roadmap/3-ai-environment.md).
 > **Status**: planning + bootstrap done. **Waves 1, 2, 3, 4, and 5 shipped between 2026-06-04 and 2026-06-05.** The build-order table below shows per-wave status. This doc tracks the build order, the audit of the current repo, and the tripwires that apply to every step.
-> **Last updated**: 2026-06-05 (wave 5 — alerts + filters — marked shipped; see timeline note below).
-> **Timeline note**: work on this checklist was paused after wave 4 (the user ran out of time). The wave 5 work (alerts + filters) was picked up and shipped afterwards, out of strict wave order. The wave table and status sections below reflect what actually shipped, not the order it shipped in.
+> **Last updated**: 2026-06-05 (wave 6 — news poller + matcher — marked shipped; see timeline note below).
+> **Timeline note**: work on this checklist was paused after wave 4 (the user ran out of time). The wave 5 (alerts + filters) and wave 6 (news poller + matcher) work was picked up and shipped afterwards, with wave 5 shipped out of strict wave order. The wave table and status sections below reflect what actually shipped, not the original 24-hour timeline.
 > **User has final word** on every decision below. If a wave is too large, the wave splits; if a wave is too small, the wave merges.
 
 ---
@@ -72,7 +72,7 @@ Each wave is sized for **1–2 hours** of focused work. The first three are scaf
 | 3 | **Auth + RBAC** | Sign-up, sign-in, refresh, `[Authorize]` works, RBAC is DB-driven (5 tables, seeded), audit tool runs | xUnit: `SignUp_DuplicateEmail_Returns409`; rbac-audit tool exits 0 | ✅ (2026-06-05) |
 | 4 | **Channel abstraction** | `INotificationChannel`, `EmailChannel` (via MailHog), `SlackChannel`, channel verify flow | xUnit: `EmailChannel_SendAsync_HitsSmtpServer` (with a fake `SmtpClient`); contract test for both | ✅ (2026-06-05) |
 | 5 | **Alert CRUD + filters** | Alert entity, filters JSON per type, CRUD endpoints, channel-mode matrix | xUnit: `CreateAlert_NewsWithKeywordFilter_PersistsFilter`; Playwright: create an alert in the UI | ✅ (2026-06-05, post-pause) |
-| 6 | **News poller + matcher** | RSS `IDataSource`, matcher engine, `Match` audit row, dispatcher wired | xUnit: `Matcher_NewsAlertWithKeywordFilter_MatchesWhenTitleContains` (red → green) |
+| 6 | **News poller + matcher** | RSS `IDataSource`, matcher engine, `Match` audit row, dispatcher wired | xUnit: `Matcher_NewsAlertWithKeywordFilter_MatchesWhenTitleContains` (red → green) | ✅ (2026-06-05) |
 | 7 | **yfinance sidecar + market poller** | FastAPI `GET /quote` + `/quotes`, `YfinanceClient`, `MarketPoller`, market matcher | pytest: `test_quote_returns_expected_shape`; xUnit: `MarketMatcher_PercentChangeInWindow_TriggersAlert` |
 | 8 | **Disaster poller + dispatcher + digests** | USGS/GDACS/NHC sources, dispatcher (realtime + digests), quiet hours | xUnit: `Dispatcher_QuietHours_DefersSendUntilNextWindow`; `DigestScheduler_15mMode_BatchesMatches` |
 | 9 | **Onboarding wizard (3 paths) + dashboard** | 3-path wizard, AI provider admin setting, dashboard with "test alert" button | Playwright: sign-up → onboarding (each path) → land on dashboard |
@@ -301,6 +301,8 @@ pnpm --dir web test:e2e --grep "test alert"
 ```
 
 **Agent**: TDD C# Implementer (heavy backend) + TDD Next.js Implementer (test button UI) + Backend Reviewer (PR-time).
+
+**Status**: ✅ Shipped 2026-06-05 (post-pause — wave 5's "picked up and shipped afterwards" window continued with this wave). Backend landed via the wave-6 PR; frontend landed via the wave-6 frontend PR (commit hashes not reported in the handoffs). Build clean (`dotnet build` → 0 errors, 0 new warnings; pre-existing `NU1902` MailKit/MimeKit advisories unchanged from wave 4, deferred to wave 8 per the wave-4 handoff). Backend tests: **155 passed, 0 failed, 0 skipped** (+45 from wave 5's 110). Frontend tests: **85 passed, 0 failed, 0 skipped** (4 revision rounds applied; the last 2 rounds were SHOULD fixes / NIT cleanups and added no new tests, with one race-fix test added in revision 2). **RBAC audit**: PASSED. 12 expected orphan permissions (all future-wave) unchanged. **Migration**: `20260605161001_AddAlertsTestOwnPermission` — adds the `Alerts.Test.Own` permission row + grants it to `User` + `Admin` (forward-only; `Up` + `Down` both implemented). The wave shipped the **full** mvp-checklist scope: `IDataSource` + `RawEvent` (Domain), `RssSource` (RSS + Atom-fallback) + `EventIngestService` (dedupe by `(SourceId, ExternalId)`) + `ISourceRegistry` (DB-driven registry), `INewsMatcher` + `NewsMatcher` (type-aware, pure-predicate + idempotent insert), `NewsPoller` + `NewsPollerRunner` (2-min tick, throws caught + logged), and the `POST /api/v1/alerts/{id}/test` "Test this alert" endpoint guarded by the new `Alerts.Test.Own` permission. **Latent DI bug found and fixed**: `NewsPollerRunner` was being `GetRequiredService`d by the hosted service but never registered with DI; the production worker would have crashed on first tick (R6). Post-wave review fixes R1–R7 all applied, plus a doc-tightening pass (D1–D6) and a host-startup smoke test that catches future DI regressions at the test stage. Deferred items: see [`docs/handoffs/wave6-handoff.md`](../handoffs/wave6-handoff.md) §5 (sources seed, admin "Fetch now" button, per-source `PollInterval` enforcement, `Matcher.Run` orphan permission) and [`docs/handoffs/wave6-frontend-handoff.md`](../handoffs/wave6-frontend-handoff.md) §1 (23 NIT items deferred to wave-11 polish).
 
 ---
 

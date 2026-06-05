@@ -7,8 +7,8 @@ Sonrisa News lets users subscribe to alerts about things that matter — RSS new
 
 ## Status
 
-🚧 **24-hour MVP in progress.** Planning complete; **wave 5 (alert CRUD + filters) is the latest shipped milestone**.
-Work on this checklist was paused after wave 4; the wave 5 work (alerts + filters) was picked up and shipped afterwards, out of strict wave order. The wave table below reflects what actually shipped, not the order it shipped in.
+🚧 **24-hour MVP in progress.** Planning complete; **wave 6 (news poller + matcher) is the latest shipped milestone**.
+Work on this checklist was paused after wave 4; the wave 5 (alerts + filters) and wave 6 (news poller + matcher) work was picked up and shipped afterwards, with wave 5 shipped out of strict wave order. The wave table below reflects what actually shipped, not the original 24-hour timeline.
 
 | Wave | Title | Status |
 |---|---|---|
@@ -17,7 +17,7 @@ Work on this checklist was paused after wave 4; the wave 5 work (alerts + filter
 | 3 | Auth + RBAC (DB-driven) | ✅ Shipped (2026-06-05) |
 | 4 | Channel abstraction | ✅ Shipped (2026-06-05) |
 | 5 | Alert CRUD + filters | ✅ Shipped (2026-06-05, post-pause) |
-| 6 | News poller + matcher | ⬜ Not started |
+| 6 | News poller + matcher | ✅ Shipped (2026-06-05) |
 | 7 | yfinance sidecar + market poller | ⬜ Not started |
 | 8 | Disaster poller + dispatcher + digests | ⬜ Not started |
 | 9 | Onboarding wizard + dashboard | ⬜ Not started |
@@ -35,6 +35,8 @@ Detailed handoffs (what landed, what was deferred, and what's still open) live i
 - [`wave4-frontend-followup.md`](docs/handoffs/wave4-frontend-followup.md) — `AddChannelDialog` polish + 10 deferred NITs
 - [`wave5-handoff.md`](docs/handoffs/wave5-handoff.md) — Alert CRUD + filters (backend, post-pause)
 - [`wave5-frontend-handoff.md`](docs/handoffs/wave5-frontend-handoff.md) — alert + filter admin UI (post-pause)
+- [`wave6-handoff.md`](docs/handoffs/wave6-handoff.md) — RSS `IDataSource` + matcher + 2-min poller (backend)
+- [`wave6-frontend-handoff.md`](docs/handoffs/wave6-frontend-handoff.md) — `TestAlertDialog` + "Test this alert" button (4 review rounds, 23 NITs deferred to wave 11)
 
 The locked planning documents live in [`docs/roadmap/`](docs/roadmap/):
 
