@@ -125,7 +125,7 @@
     {
       "label": "rbac: audit",
       "type": "shell",
-      "command": "dotnet run --project backend/tools/RbacAudit -- --policies backend/src/SonrisaNews.Infrastructure/Auth/rbac_policy.csv --controllers backend/src/SonrisaNews.Api",
+      "command": "dotnet run --project backend/tools/RbacAudit -- --db data/sonrisa.db --controllers backend/src/SonrisaNews.Api",
       "options": { "cwd": "${workspaceRoot}" },
       "problemMatcher": []
     },

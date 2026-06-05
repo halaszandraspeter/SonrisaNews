@@ -1,6 +1,8 @@
 using Scalar.AspNetCore;
 using Serilog;
 using SonrisaNews.Infrastructure;
+using SonrisaNews.Infrastructure.Auth;
+using SonrisaNews.Shared;
 using SonrisaNews.Shared.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,10 +12,22 @@ var builder = WebApplication.CreateBuilder(args);
 // so both processes emit the same JSON log shape.
 builder.Services.AddSonrisaNewsSerilog();
 
+// --- Auth + RBAC ------------------------------------------------------------
+// Bind AdminSeed options from the "AdminSeed" config section (which can be
+// populated by the appsettings.Development.json block in dev, or by the
+// AdminSeed__Email / AdminSeed__Password env vars in prod). AddSonrisaNewsAuth
+// expects these to be bound by the caller because the env-var names are a
+// host-level concern, not Infrastructure's.
+builder.Services
+    .Configure<AdminSeederOptions>(builder.Configuration.GetSection(AdminSeederOptions.SectionName));
+
+builder.Services.AddSonrisaNewsInfrastructure();
+builder.Services.AddSonrisaNewsAuth(builder.Configuration);
+builder.Services.AddSonrisaNewsPolicies();
+
 // --- Services --------------------------------------------------------------
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-builder.Services.AddSonrisaNewsInfrastructure();
 
 var app = builder.Build();
 
@@ -32,6 +46,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+
+// Auth middleware order matters: UseAuthentication populates the
+// ClaimsPrincipal from the bearer token, UseAuthorization runs the
+// [Authorize] attributes and the RbacPolicyHandler. Both are required
+// even for the [AllowAnonymous] endpoints (the auth middleware is
+// idempotent when there's no token).
+app.UseAuthentication();
+app.UseAuthorization();
 
 // --- Liveness / readiness probes (no business logic) -----------------------
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))

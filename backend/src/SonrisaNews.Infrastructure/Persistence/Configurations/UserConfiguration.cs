@@ -33,12 +33,13 @@ internal class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(64);
 
-        builder.Property(u => u.Role)
-            .HasConversion<int>();
-
         builder.Property(u => u.Status)
             .HasConversion<int>()
             .HasDefaultValue(UserStatus.PendingEmailVerification);
+
+        builder.Property(u => u.MustChangePassword)
+            .HasConversion<int>()
+            .HasDefaultValue(false);
 
         builder.HasIndex(u => u.Email)
             .IsUnique()

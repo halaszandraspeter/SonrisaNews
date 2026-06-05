@@ -8,7 +8,10 @@ public static class ConfigurationKeys
     public const string Jwt = "Jwt";
     public const string Smtp = "Smtp";
     public const string Yfinance = "Yfinance";
-    public const string SeedAdminEmail = "SEED_ADMIN_EMAIL";
-    public const string SeedAdminPassword = "SEED_ADMIN_PASSWORD";
-    public const string SeedAdminDisplayName = "SEED_ADMIN_DISPLAY_NAME";
+
+    // Bootstrap admin seed: env-var form is `AdminSeed__Email` /
+    // `AdminSeed__Password` / `AdminSeed__DisplayName` (ASP.NET Core
+    // maps "__" to ":" when reading env vars). The bound section name
+    // is `AdminSeed`; see SonrisaNews.Infrastructure.Auth.AdminSeederOptions
+    // for the section-name constant.
 }

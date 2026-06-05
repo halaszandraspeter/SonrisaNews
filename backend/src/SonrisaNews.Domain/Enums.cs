@@ -48,11 +48,3 @@ public enum NotificationStatus
     Sent = 2,
     Failed = 3,
 }
-
-/// <summary>Role assigned to a user. Drives RBAC checks.</summary>
-public enum UserRole
-{
-    User = 1,
-    Admin = 2,
-    System = 3,
-}

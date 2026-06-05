@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using SonrisaNews.Domain;
+using SonrisaNews.Domain.Auth;
 using SonrisaNews.Domain.Entities;
 using SonrisaNews.Infrastructure.Persistence;
 using SonrisaNews.Shared;
@@ -57,7 +58,6 @@ public class DatabaseSchemaTests
             Email = "ada@example.com",
             PasswordHash = "hashed:not-a-real-hash",
             DisplayName = "Ada",
-            Role = UserRole.User,
             TimeZone = "Europe/Budapest",
             Status = UserStatus.PendingEmailVerification,
             CreatedAt = createdAt,
@@ -70,9 +70,33 @@ public class DatabaseSchemaTests
         var loaded = ctx.Users.Single();
         loaded.Id.Should().Be(user.Id);
         loaded.Email.Should().Be("ada@example.com");
-        loaded.Role.Should().Be(UserRole.User);
         loaded.Status.Should().Be(UserStatus.PendingEmailVerification);
         loaded.CreatedAt.Should().Be(createdAt);
+    }
+
+    [Fact]
+    public void RbacCatalog_RoundTripsThroughSqliteMemory_AsExpected()
+    {
+        using var ctx = NewInMemoryContext();
+        var seededAt = new DateTimeOffset(2026, 6, 4, 12, 0, 0, TimeSpan.Zero);
+
+        var role = new Role { Id = Guid.NewGuid(), Name = "TestRole", DisplayName = "Test", CreatedAt = seededAt };
+        var perm = new Permission { Id = Guid.NewGuid(), Name = "Test.Perm", CreatedAt = seededAt };
+        var grant = new RolePermission { RoleId = role.Id, PermissionId = perm.Id, CreatedAt = seededAt };
+
+        ctx.Roles.Add(role);
+        ctx.Permissions.Add(perm);
+        ctx.RolePermissions.Add(grant);
+        ctx.SaveChanges();
+
+        ctx.ChangeTracker.Clear();
+        var loadedRole = ctx.Roles.Single();
+        var loadedPerm = ctx.Permissions.Single();
+        var loadedGrant = ctx.RolePermissions.Single();
+        loadedRole.Name.Should().Be("TestRole");
+        loadedPerm.Name.Should().Be("Test.Perm");
+        loadedGrant.RoleId.Should().Be(role.Id);
+        loadedGrant.PermissionId.Should().Be(perm.Id);
     }
 
     [Fact]
