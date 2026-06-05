@@ -47,7 +47,12 @@ export type paths = {
     get: operations["HealthController_Get"];
   };
   "/api/v1/channels": {
+    get: operations["ChannelsController_List"];
     post: operations["ChannelsController_Create"];
+  };
+  "/api/v1/channels/{id}": {
+    get: operations["ChannelsController_Get"];
+    delete: operations["ChannelsController_Delete"];
   };
   "/api/v1/channels/{id}/verify/start": {
     post: operations["ChannelsController_StartVerify"];
@@ -55,8 +60,24 @@ export type paths = {
   "/api/v1/channels/{id}/verify/confirm": {
     post: operations["ChannelsController_ConfirmVerify"];
   };
-  "/api/v1/channels/{id}": {
-    delete: operations["ChannelsController_Delete"];
+  "/api/v1/alerts": {
+    get: operations["AlertsController_List"];
+    post: operations["AlertsController_Create"];
+  };
+  "/api/v1/alerts/{id}": {
+    get: operations["AlertsController_Get"];
+    put: operations["AlertsController_Update"];
+    delete: operations["AlertsController_Delete"];
+  };
+  "/api/v1/alerts/{id}/channels": {
+    get: operations["AlertsController_ListChannelModes"];
+    post: operations["AlertsController_SetChannelMode"];
+  };
+  "/api/v1/alerts/{id}/channels/{channelId}": {
+    delete: operations["AlertsController_RemoveChannelMode"];
+  };
+  "/api/v1/alerts/{id}/test": {
+    post: operations["AlertsController_Test"];
   };
 };
 
@@ -264,6 +285,212 @@ export type operations = {
       404: unknown;
     };
   };
+  ChannelsController_Get: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      /** 200 — channel returned. */
+      200: {
+        content: {
+          "application/json": ChannelResponse;
+        };
+      };
+      401: unknown;
+      403: unknown;
+      404: unknown;
+    };
+  };
+  /**
+   * List the caller's channels. The wave 5 dashboard needs a
+   * channel list to render the alert × channel matrix. The
+   * backend's <c>ChannelsController</c> did not ship with this
+   * endpoint in wave 4; the schema entry is added here so the
+   * frontend can target it as soon as the backend adds it (a
+   * one-line <c>HttpGet</c> + a <c>Where(c => c.UserId == userId)</c>
+   * query). Until then, the query will receive a 404 from the API
+   * and the matrix renders the empty state.
+   */
+  ChannelsController_List: {
+    responses: {
+      /** 200 — list of the caller's channels. */
+      200: {
+        content: {
+          "application/json": ChannelResponse[];
+        };
+      };
+      401: unknown;
+      403: unknown;
+    };
+  };
+  // --- AlertsController ---------------------------------------------------
+  AlertsController_List: {
+    responses: {
+      /** 200 — caller's alerts, newest first. */
+      200: {
+        content: {
+          "application/json": AlertResponse[];
+        };
+      };
+      401: unknown;
+      403: unknown;
+    };
+  };
+  AlertsController_Get: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": AlertResponse;
+        };
+      };
+      400: unknown;
+      401: unknown;
+      403: unknown;
+      404: unknown;
+    };
+  };
+  AlertsController_Create: {
+    responses: {
+      201: {
+        content: {
+          "application/json": AlertResponse;
+        };
+      };
+      400: unknown;
+      401: unknown;
+      403: unknown;
+    };
+    requestBody: {
+      content: {
+        "application/json": CreateAlertRequest;
+      };
+    };
+  };
+  AlertsController_Update: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": AlertResponse;
+        };
+      };
+      400: unknown;
+      401: unknown;
+      403: unknown;
+      404: unknown;
+    };
+    requestBody: {
+      content: {
+        "application/json": UpdateAlertRequest;
+      };
+    };
+  };
+  AlertsController_Delete: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      204: never;
+      400: unknown;
+      401: unknown;
+      403: unknown;
+      404: unknown;
+    };
+  };
+  AlertsController_ListChannelModes: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": AlertChannelModeResponse[];
+        };
+      };
+      400: unknown;
+      401: unknown;
+      403: unknown;
+      404: unknown;
+    };
+  };
+  AlertsController_SetChannelMode: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": AlertChannelModeResponse;
+        };
+      };
+      400: unknown;
+      401: unknown;
+      403: unknown;
+      404: unknown;
+    };
+    requestBody: {
+      content: {
+        "application/json": SetChannelModeRequest;
+      };
+    };
+  };
+  AlertsController_RemoveChannelMode: {
+    parameters: {
+      path: {
+        id: string;
+        channelId: string;
+      };
+    };
+    responses: {
+      204: never;
+      400: unknown;
+      401: unknown;
+      403: unknown;
+      404: unknown;
+    };
+  };
+  /**
+   * "Test this alert" — re-runs the matcher against the most recent
+   * 50 events for the alert. The matcher lands in wave 6; until
+   * then the backend returns a 501 (Not Implemented) and the
+   * frontend renders "Test runs after wave 6 ships".
+   */
+  AlertsController_Test: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": AlertTestResponse;
+        };
+      };
+      400: unknown;
+      401: unknown;
+      403: unknown;
+      404: unknown;
+      501: unknown;
+    };
+  };
 };
 
 // --- Channel DTOs --------------------------------------------------------
@@ -274,7 +501,7 @@ export type CreateChannelRequest = {
   Destination: string;
 };
 
-/** Response shape for `POST /api/v1/channels`. */
+/** Response shape for `POST /api/v1/channels` and `GET /api/v1/channels/{id}`. */
 export type ChannelResponse = {
   Id: string;
   Type: string;
@@ -292,6 +519,75 @@ export type VerifyStartResponse = {
 export type VerifyConfirmRequest = {
   Code: string;
 };
+
+// --- Alert DTOs ---------------------------------------------------------
+
+/** Body for `POST /api/v1/alerts`. */
+export type CreateAlertRequest = {
+  Name: string;
+  Type: AlertTypeString;
+  /** JSON string. The shape depends on <c>Type</c>; see <c>features/alerts/filterSchemas</c>. */
+  Filters?: string | null;
+};
+
+/** Body for `PUT /api/v1/alerts/{id}`. */
+export type UpdateAlertRequest = {
+  Name?: string | null;
+  Filters?: string | null;
+  Enabled?: boolean | null;
+};
+
+/** Body for `POST /api/v1/alerts/{id}/channels`. */
+export type SetChannelModeRequest = {
+  ChannelId: string;
+  Mode: DeliveryModeString;
+};
+
+/** Response shape for an alert. */
+export type AlertResponse = {
+  Id: string;
+  Name: string;
+  Type: AlertTypeString;
+  Enabled: boolean;
+  /** JSON string. Parse with the per-type Zod schema before reading. */
+  Filters: string;
+  CreatedAt: string;
+  UpdatedAt: string;
+};
+
+/** Response shape for an alert-channel-mode row. */
+export type AlertChannelModeResponse = {
+  AlertId: string;
+  ChannelId: string;
+  Mode: DeliveryModeString;
+  CreatedAt: string;
+};
+
+/**
+ * Response shape for `POST /api/v1/alerts/{id}/test`. Each match
+ * is the would-have-fired event shape: title, source, occurred
+ * time, and a snippet of body. The matcher (wave 6) populates
+ * this; until then the backend returns 501.
+ */
+export type AlertTestResponse = {
+  AlertId: string;
+  MatchedCount: number;
+  Matches: AlertTestMatch[];
+};
+
+export type AlertTestMatch = {
+  EventId: string;
+  Title: string;
+  Source: string;
+  OccurredAt: string;
+  Snippet: string;
+};
+
+/** String form of the <c>AlertType</c> C# enum (System.Text.Json + JsonStringEnumConverter). */
+export type AlertTypeString = "News" | "Market" | "Disaster";
+
+/** String form of the <c>DeliveryMode</c> C# enum. */
+export type DeliveryModeString = "Realtime" | "Digest15m" | "DigestHourly" | "DigestDaily";
 
 // --- DTOs ----------------------------------------------------------------
 

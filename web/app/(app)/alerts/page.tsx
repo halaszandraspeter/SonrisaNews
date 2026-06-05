@@ -3,18 +3,19 @@ import AlertTitle from "@mui/material/AlertTitle";
 import Container from "@mui/material/Container";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { AddChannelButton } from "@/features/channels/AddChannelButton";
+
+import { AlertsPageBody } from "@/features/alerts/AlertsPageBody";
 
 /**
- * The post-sign-in landing page. The real
- * "alerts dashboard" with grouped lists, "test this alert" buttons,
- * and the channel-mode matrix lands in wave 5. This is the wave 4
- * stub with the Add Channel button + dialog integrated.
+ * The post-sign-in dashboard. Wave 5 ships the full alert list
+ * (grouped by type, with edit/delete/test actions) plus the
+ * "add channel" + "new alert" buttons in the page header. The
+ * channel-mode matrix lives at <c>/alerts/{id}</c>.
  *
  * Server Component — the auth gate runs in the parent
- * <c>(app)/layout.tsx</c> via <c>AuthGate</c>. The AddChannelButton is
- * the only client-side leaf (it owns dialog open/close state and the
- * React Query mutations).
+ * <c>(app)/layout.tsx</c> via <c>AuthGate</c>. The interactive
+ * body (list, buttons, editor dialog) lives in
+ * <c>AlertsPageBody</c> so the host can be a single client tree.
  */
 export default function AlertsPage() {
   return (
@@ -25,20 +26,17 @@ export default function AlertsPage() {
             Your alerts
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage your notification channels and configure alerts. The full
-            dashboard with alert list and channel-mode matrix arrives in wave 5.
+            Manage your alerts and the channels they deliver to. Alerts are inert
+            until the matcher wires them up in wave 6.
           </Typography>
         </Stack>
         <Alert severity="info">
-          <AlertTitle>Wave 4 development</AlertTitle>
-          The Add Channel dialog is now available. Test it by clicking the button
-          below. The full dashboard with alert management arrives in wave 5.
+          <AlertTitle>Wave 5 — alert CRUD + filters</AlertTitle>
+          Create, edit, enable, and delete alerts. Click an alert&apos;s row to
+          open the channel-mode matrix.
         </Alert>
-        <Stack direction="row" spacing={2}>
-          <AddChannelButton />
-        </Stack>
+        <AlertsPageBody />
       </Stack>
     </Container>
   );
 }
-

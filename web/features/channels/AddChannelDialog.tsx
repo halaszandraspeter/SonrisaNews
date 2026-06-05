@@ -36,10 +36,26 @@ type ChannelInput = z.infer<typeof channelSchema>;
 
 type Step = "select-type" | "enter-destination" | "verify" | "success";
 
+/**
+ * One error state for the dialog. Either a validation error (the
+ * user typed something invalid) or an API error (the server
+ * rejected the request). Rendered as a single <c>Alert</c> at the
+ * top of the dialog.
+ */
+type DialogError =
+  | { kind: "validation"; message: string }
+  | { kind: "api"; message: string }
+  | null;
+
 interface AddChannelDialogProps {
   open: boolean;
   onClose: () => void;
-  onChannelCreated: () => void;
+  /**
+   * Called after the channel is successfully verified. Carries
+   * the new channel's id so the parent can invalidate the right
+   * query key (e.g. <c>["channels"]</c>).
+   */
+  onChannelCreated: (channelId: string) => void;
 }
 
 export function AddChannelDialog({
@@ -51,42 +67,41 @@ export function AddChannelDialog({
   const [selectedType, setSelectedType] = useState<"email" | "slack" | null>(null);
   const [destination, setDestination] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  // The codegen produces a non-nullable <c>channel.Id: string</c>.
+  // <c>null</c> is the "not yet created" sentinel before the
+  // create mutation succeeds.
   const [channelId, setChannelId] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string>("");
-  const [apiError, setApiError] = useState<string>("");
+  const [error, setError] = useState<DialogError>(null);
 
   // Mutation order: dependencies come first so the file reads top-to-bottom.
   // `confirmVerify` does not depend on any other mutation; `startVerify`
-  // depends on `channelId` (set by `createChannel`); `createChannel` calls
-  // `startVerify` in its `onSuccess` after `setChannelId(channel.Id)` flushes.
+  // depends on the channelId passed as a variable.
   const confirmVerifyMutation = useMutation({
-    mutationFn: async (code: string) => {
-      if (!channelId) throw new Error("Channel ID not set");
+    mutationFn: async (vars: { channelId: string; code: string }) => {
       const { response, error } = await apiClient.POST(
         "/api/v1/channels/{id}/verify/confirm",
-        { params: { path: { id: channelId } }, body: { Code: code } }
+        { params: { path: { id: vars.channelId } }, body: { Code: vars.code } }
       );
       if (error || !response.ok) {
         throw new Error("Verification failed");
       }
       return response.body;
     },
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       setStep("success");
-      setApiError("");
-      onChannelCreated();
+      setError(null);
+      onChannelCreated(vars.channelId);
     },
     onError: () => {
-      setApiError("Verification failed. Please check the code and try again.");
+      setError({ kind: "api", message: "Verification failed. Please check the code and try again." });
     },
   });
 
   const startVerifyMutation = useMutation({
-    mutationFn: async () => {
-      if (!channelId) throw new Error("Channel ID not set");
+    mutationFn: async (vars: { channelId: string }) => {
       const { response, error } = await apiClient.POST(
         "/api/v1/channels/{id}/verify/start",
-        { params: { path: { id: channelId } } }
+        { params: { path: { id: vars.channelId } } }
       );
       if (error || !response.ok) {
         throw new Error("Failed to start verification");
@@ -97,7 +112,7 @@ export function AddChannelDialog({
       setStep("verify");
     },
     onError: () => {
-      setApiError("Failed to send verification code. Please try again.");
+      setError({ kind: "api", message: "Failed to send verification code. Please try again." });
     },
   });
 
@@ -112,15 +127,17 @@ export function AddChannelDialog({
       return data;
     },
     onSuccess: (channel) => {
-      // setChannelId is flushed in the same React batch as the
-      // mutate() call, so startVerifyMutation's closure sees the new
-      // channelId when its mutationFn runs.
-      setChannelId(channel.Id);
-      startVerifyMutation.mutate();
-      setApiError("");
+      // Pass the new channel id as a variable rather than
+      // reading it from state. The mutation no longer closes
+      // over a stale <c>channelId</c> if a future refactor
+      // adds an <c>await</c> between the two steps.
+      const newId = channel.Id;
+      setChannelId(newId);
+      setError(null);
+      startVerifyMutation.mutate({ channelId: newId });
     },
     onError: () => {
-      setApiError("Failed to create channel. Please try again.");
+      setError({ kind: "api", message: "Failed to create channel. Please try again." });
     },
   });
 
@@ -130,22 +147,21 @@ export function AddChannelDialog({
     setDestination("");
     setVerificationCode("");
     setChannelId(null);
-    setValidationError("");
-    setApiError("");
+    setError(null);
     onClose();
   };
 
   const handleSelectType = (type: "email" | "slack") => {
     setSelectedType(type);
     setStep("enter-destination");
-    setValidationError("");
+    setError(null);
   };
 
   const handleCreateChannel = async () => {
-    setValidationError("");
+    setError(null);
 
     if (!selectedType) {
-      setValidationError("Please select a channel type");
+      setError({ kind: "validation", message: "Please select a channel type" });
       return;
     }
 
@@ -153,7 +169,8 @@ export function AddChannelDialog({
 
     const result = channelSchema.safeParse(data);
     if (!result.success) {
-      setValidationError(result.error.issues[0]?.message ?? "Invalid input");
+      const message = result.error.issues[0]?.message ?? "Invalid input";
+      setError({ kind: "validation", message });
       return;
     }
 
@@ -164,11 +181,12 @@ export function AddChannelDialog({
   };
 
   const handleConfirmVerification = async () => {
-    if (!verificationCode) {
-      setValidationError("Please enter the verification code");
+    setError(null);
+    if (!channelId || !verificationCode) {
+      setError({ kind: "validation", message: "Please enter the verification code" });
       return;
     }
-    confirmVerifyMutation.mutate(verificationCode);
+    confirmVerifyMutation.mutate({ channelId, code: verificationCode });
   };
 
   const handleBack = () => {
@@ -176,11 +194,11 @@ export function AddChannelDialog({
       setStep("select-type");
       setSelectedType(null);
       setDestination("");
-      setValidationError("");
+      setError(null);
     } else if (step === "verify") {
       setStep("enter-destination");
       setVerificationCode("");
-      setValidationError("");
+      setError(null);
     }
   };
 
@@ -202,8 +220,9 @@ export function AddChannelDialog({
       <DialogTitle>Add a Channel</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 2 }}>
-          {apiError && <Alert severity="error">{apiError}</Alert>}
-          {validationError && <Alert severity="error">{validationError}</Alert>}
+          {error !== null ? (
+            <Alert severity="error">{error.message}</Alert>
+          ) : null}
 
           {step === "select-type" && (
             <Stack spacing={2}>
@@ -241,7 +260,7 @@ export function AddChannelDialog({
                 value={destination}
                 onChange={(e) => {
                   setDestination(e.target.value);
-                  setValidationError("");
+                  setError(null);
                 }}
                 fullWidth
                 autoFocus
@@ -261,7 +280,7 @@ export function AddChannelDialog({
                 value={verificationCode}
                 onChange={(e) => {
                   setVerificationCode(e.target.value);
-                  setValidationError("");
+                  setError(null);
                 }}
                 fullWidth
                 autoFocus
