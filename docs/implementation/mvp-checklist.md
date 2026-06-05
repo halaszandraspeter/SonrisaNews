@@ -1,8 +1,9 @@
 # Sonrisa News — MVP Implementation Checklist
 
 > **Scope**: the 24-hour build. Source of truth: [`1-features.md`](../roadmap/1-features.md), [`2-stack.md`](../roadmap/2-stack.md), [`3-ai-environment.md`](../roadmap/3-ai-environment.md).
-> **Status**: planning + bootstrap done. **Waves 1, 2, 3, and 4 shipped between 2026-06-04 and 2026-06-05.** The build-order table below shows per-wave status. This doc tracks the build order, the audit of the current repo, and the tripwires that apply to every step.
-> **Last updated**: 2026-06-05 (wave 4 backend handoff).
+> **Status**: planning + bootstrap done. **Waves 1, 2, 3, 4, and 5 shipped between 2026-06-04 and 2026-06-05.** The build-order table below shows per-wave status. This doc tracks the build order, the audit of the current repo, and the tripwires that apply to every step.
+> **Last updated**: 2026-06-05 (wave 5 — alerts + filters — marked shipped; see timeline note below).
+> **Timeline note**: work on this checklist was paused after wave 4 (the user ran out of time). The wave 5 work (alerts + filters) was picked up and shipped afterwards, out of strict wave order. The wave table and status sections below reflect what actually shipped, not the order it shipped in.
 > **User has final word** on every decision below. If a wave is too large, the wave splits; if a wave is too small, the wave merges.
 
 ---
@@ -70,7 +71,7 @@ Each wave is sized for **1–2 hours** of focused work. The first three are scaf
 | 2 | **Database + persistence skeleton** | EF Core + SQLite + first migration applies; `dotnet ef` is wired | `dotnet ef database update` against `:memory:` succeeds, integration test reads/writes a row | ✅ (2026-06-04) |
 | 3 | **Auth + RBAC** | Sign-up, sign-in, refresh, `[Authorize]` works, RBAC is DB-driven (5 tables, seeded), audit tool runs | xUnit: `SignUp_DuplicateEmail_Returns409`; rbac-audit tool exits 0 | ✅ (2026-06-05) |
 | 4 | **Channel abstraction** | `INotificationChannel`, `EmailChannel` (via MailHog), `SlackChannel`, channel verify flow | xUnit: `EmailChannel_SendAsync_HitsSmtpServer` (with a fake `SmtpClient`); contract test for both | ✅ (2026-06-05) |
-| 5 | **Alert CRUD + filters** | Alert entity, filters JSON per type, CRUD endpoints, channel-mode matrix | xUnit: `CreateAlert_NewsWithKeywordFilter_PersistsFilter`; Playwright: create an alert in the UI |
+| 5 | **Alert CRUD + filters** | Alert entity, filters JSON per type, CRUD endpoints, channel-mode matrix | xUnit: `CreateAlert_NewsWithKeywordFilter_PersistsFilter`; Playwright: create an alert in the UI | ✅ (2026-06-05, post-pause) |
 | 6 | **News poller + matcher** | RSS `IDataSource`, matcher engine, `Match` audit row, dispatcher wired | xUnit: `Matcher_NewsAlertWithKeywordFilter_MatchesWhenTitleContains` (red → green) |
 | 7 | **yfinance sidecar + market poller** | FastAPI `GET /quote` + `/quotes`, `YfinanceClient`, `MarketPoller`, market matcher | pytest: `test_quote_returns_expected_shape`; xUnit: `MarketMatcher_PercentChangeInWindow_TriggersAlert` |
 | 8 | **Disaster poller + dispatcher + digests** | USGS/GDACS/NHC sources, dispatcher (realtime + digests), quiet hours | xUnit: `Dispatcher_QuietHours_DefersSendUntilNextWindow`; `DigestScheduler_15mMode_BatchesMatches` |
@@ -261,6 +262,8 @@ pnpm --dir web test --filter alerts
 ```
 
 **Agent**: TDD C# Implementer + TDD Next.js Implementer.
+
+**Status**: ✅ Shipped 2026-06-05 (post-pause — see timeline note at the top of this doc). Backend landed in commit `778076f`; frontend landed in `090a48b`. The original scope above is the contract; the handoffs [`docs/handoffs/wave5-handoff.md`](../handoffs/wave5-handoff.md) and [`docs/handoffs/wave5-frontend-handoff.md`](../handoffs/wave5-frontend-handoff.md) are the source of truth for what actually landed, what was deferred, and what's still open.
 
 ---
 

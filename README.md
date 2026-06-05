@@ -7,7 +7,8 @@ Sonrisa News lets users subscribe to alerts about things that matter — RSS new
 
 ## Status
 
-🚧 **24-hour MVP in progress.** Planning complete; **wave 4 (channel abstraction: email + Slack, verify flow) is the latest shipped milestone**.
+🚧 **24-hour MVP in progress.** Planning complete; **wave 5 (alert CRUD + filters) is the latest shipped milestone**.
+Work on this checklist was paused after wave 4; the wave 5 work (alerts + filters) was picked up and shipped afterwards, out of strict wave order. The wave table below reflects what actually shipped, not the order it shipped in.
 
 | Wave | Title | Status |
 |---|---|---|
@@ -15,7 +16,7 @@ Sonrisa News lets users subscribe to alerts about things that matter — RSS new
 | 2 | Database + persistence skeleton | ✅ Shipped (2026-06-04) |
 | 3 | Auth + RBAC (DB-driven) | ✅ Shipped (2026-06-05) |
 | 4 | Channel abstraction | ✅ Shipped (2026-06-05) |
-| 5 | Alert CRUD + filters | ⬜ Not started |
+| 5 | Alert CRUD + filters | ✅ Shipped (2026-06-05, post-pause) |
 | 6 | News poller + matcher | ⬜ Not started |
 | 7 | yfinance sidecar + market poller | ⬜ Not started |
 | 8 | Disaster poller + dispatcher + digests | ⬜ Not started |
@@ -32,6 +33,8 @@ Detailed handoffs (what landed, what was deferred, and what's still open) live i
 - [`wave3-frontend-handoff.md`](docs/handoffs/wave3-frontend-handoff.md) — auth client, sign-in / sign-up pages, `AuthGate`
 - [`wave4-handoff.md`](docs/handoffs/wave4-handoff.md) — `EmailChannel` + `SlackChannel`, 24h verification expiry, `Notification.DedupeKey`
 - [`wave4-frontend-followup.md`](docs/handoffs/wave4-frontend-followup.md) — `AddChannelDialog` polish + 10 deferred NITs
+- [`wave5-handoff.md`](docs/handoffs/wave5-handoff.md) — Alert CRUD + filters (backend, post-pause)
+- [`wave5-frontend-handoff.md`](docs/handoffs/wave5-frontend-handoff.md) — alert + filter admin UI (post-pause)
 
 The locked planning documents live in [`docs/roadmap/`](docs/roadmap/):
 
