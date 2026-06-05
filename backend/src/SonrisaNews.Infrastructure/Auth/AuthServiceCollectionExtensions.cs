@@ -107,6 +107,24 @@ public static class AuthServiceCollectionExtensions
     /// <see cref="RbacPolicyHandler"/> enforces the permission against
     /// the DB (UserRoles ⨝ RolePermissions ⨝ Permissions).
     /// </summary>
+    /// <remarks>
+    /// Adding a new permission requires updates in FIVE places (the
+    /// rbac-policies.instructions.md tripwire in action):
+    /// <list type="number">
+    ///   <item><see cref="Permissions"/> (the constant the controller
+    ///         attribute references)</item>
+    ///   <item><see cref="RolesCatalogSeed"/> (the deterministic Guid
+    ///         the migration and the test seed reference)</item>
+    ///   <item>A new <c>Migration</c> that inserts the row in
+    ///         <c>Permissions</c> and the grants in
+    ///         <c>RolePermissions</c> (both <c>Up</c> and <c>Down</c>)</item>
+    ///   <item>This array (the policy-registration that turns the
+    ///         constant into a runtime-checked policy)</item>
+    ///   <item>The catalog seed in
+    ///         <c>RbacPolicyHandlerTests.SeedCatalogAsync</c> (so the
+    ///         handler unit tests have the row in the in-memory DB)</item>
+    /// </list>
+    /// </remarks>
     public static IServiceCollection AddSonrisaNewsPolicies(this IServiceCollection services)
     {
         services.AddAuthorization(options =>
@@ -118,6 +136,7 @@ public static class AuthServiceCollectionExtensions
             var permissions = new[]
             {
                 Permissions.AlertsReadOwn, Permissions.AlertsWriteOwn,
+                Permissions.AlertsTestOwn,
                 Permissions.AlertsReadAny, Permissions.AlertsWriteAny,
                 Permissions.ChannelsReadOwn, Permissions.ChannelsWriteOwn,
                 Permissions.SourcesReadAny, Permissions.SourcesWriteAny,

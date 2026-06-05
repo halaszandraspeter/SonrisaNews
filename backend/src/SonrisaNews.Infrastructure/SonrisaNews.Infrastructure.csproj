@@ -29,4 +29,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SonrisaNews.UnitTests" />
+  </ItemGroup>
+
 </Project>

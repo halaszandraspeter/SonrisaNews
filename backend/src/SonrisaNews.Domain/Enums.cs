@@ -48,3 +48,24 @@ public enum NotificationStatus
     Sent = 2,
     Failed = 3,
 }
+
+/// <summary>
+/// Helpers for the <see cref="SourceType"/> ↔ <see cref="AlertType"/>
+/// conversion. The two enums are kept separate (a future migration
+/// may split them), but their values are deliberately aligned: a
+/// news source emits News events, a market source emits Market
+/// events, a disaster source emits Disaster events. <see cref="MarketSymbol"/>
+/// is the source's per-symbol grouping; it maps to a single
+/// <see cref="AlertType.Market"/> alert per ticker.
+/// </summary>
+public static class SourceTypeExtensions
+{
+    /// <summary>Map a <see cref="SourceType"/> to the alert type its events produce.</summary>
+    public static AlertType ToAlertType(this SourceType sourceType) => sourceType switch
+    {
+        SourceType.News => AlertType.News,
+        SourceType.MarketSymbol => AlertType.Market,
+        SourceType.Disaster => AlertType.Disaster,
+        _ => throw new System.ArgumentOutOfRangeException(nameof(sourceType), sourceType, "Unknown source type."),
+    };
+}

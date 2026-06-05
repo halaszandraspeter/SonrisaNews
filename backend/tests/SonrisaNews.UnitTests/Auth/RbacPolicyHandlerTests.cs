@@ -88,6 +88,36 @@ public class RbacPolicyHandlerTests
     }
 
     [Fact]
+    public async Task User_CanTestOwnAlerts_AllowedByPolicy()
+    {
+        // Wave 6 — the "Test this alert" endpoint uses
+        // Alerts.Test.Own, not the read alias or the write permission.
+        // Positive: a regular user is allowed to do Alerts.Test.Own.
+        var (handler, bobId) = await NewHandlerAsync("bob@example.com", Roles.User);
+
+        var context = NewContext(bobId, Permissions.AlertsTestOwn);
+        await handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeTrue(
+            "User must be granted Alerts.Test.Own via the RolePermissions catalog — the wave-6 'Test this alert' endpoint is read-only and needs its own grant, not a write alias");
+    }
+
+    [Fact]
+    public async Task System_CannotTestOwnAlerts_RejectedByPolicy()
+    {
+        // Wave 6 — the worker (System role) does NOT preview alerts; it
+        // just matches. So the System role must NOT have Alerts.Test.Own.
+        // Negative tripwire: a future wave that adds System to the
+        // grant by accident will surface here.
+        var (handler, workerId) = await NewHandlerAsync("worker@system", Roles.System);
+
+        var context = NewContext(workerId, Permissions.AlertsTestOwn);
+        await handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeFalse("System must NOT be granted Alerts.Test.Own — the worker does not preview alerts");
+    }
+
+    [Fact]
     public async Task Unauthenticated_Request_IsRejected()
     {
         // Negative: no current user bound → 403 regardless of the policy.
@@ -201,6 +231,7 @@ public class RbacPolicyHandlerTests
         {
             (RolesCatalogSeed.AlertsReadOwn,         Permissions.AlertsReadOwn),
             (RolesCatalogSeed.AlertsWriteOwn,        Permissions.AlertsWriteOwn),
+            (RolesCatalogSeed.AlertsTestOwn,         Permissions.AlertsTestOwn),
             (RolesCatalogSeed.AlertsReadAny,         Permissions.AlertsReadAny),
             (RolesCatalogSeed.AlertsWriteAny,        Permissions.AlertsWriteAny),
             (RolesCatalogSeed.ChannelsReadOwn,        Permissions.ChannelsReadOwn),
@@ -228,6 +259,7 @@ public class RbacPolicyHandlerTests
         // User role grants.
         Grant(RolesCatalogSeed.UserRoleId, RolesCatalogSeed.AlertsReadOwn);
         Grant(RolesCatalogSeed.UserRoleId, RolesCatalogSeed.AlertsWriteOwn);
+        Grant(RolesCatalogSeed.UserRoleId, RolesCatalogSeed.AlertsTestOwn);
         Grant(RolesCatalogSeed.UserRoleId, RolesCatalogSeed.ChannelsReadOwn);
         Grant(RolesCatalogSeed.UserRoleId, RolesCatalogSeed.ChannelsWriteOwn);
         Grant(RolesCatalogSeed.UserRoleId, RolesCatalogSeed.ProfileRead);
@@ -235,6 +267,7 @@ public class RbacPolicyHandlerTests
         // Admin role grants (inherits everything User has, plus admin-only).
         Grant(RolesCatalogSeed.AdminRoleId, RolesCatalogSeed.AlertsReadAny);
         Grant(RolesCatalogSeed.AdminRoleId, RolesCatalogSeed.AlertsWriteAny);
+        Grant(RolesCatalogSeed.AdminRoleId, RolesCatalogSeed.AlertsTestOwn);
         Grant(RolesCatalogSeed.AdminRoleId, RolesCatalogSeed.SourcesReadAny);
         Grant(RolesCatalogSeed.AdminRoleId, RolesCatalogSeed.SourcesWriteAny);
         Grant(RolesCatalogSeed.AdminRoleId, RolesCatalogSeed.UsersReadAny);

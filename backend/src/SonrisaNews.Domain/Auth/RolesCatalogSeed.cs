@@ -36,6 +36,7 @@ public static class RolesCatalogSeed
     // literal here is fine — these are not random, they're catalog keys.
     public static readonly Guid AlertsReadOwn = Guid.Parse("40000000-0000-0000-0000-000000000001");
     public static readonly Guid AlertsWriteOwn = Guid.Parse("40000000-0000-0000-0000-000000000002");
+    public static readonly Guid AlertsTestOwn = Guid.Parse("40000000-0000-0000-0000-000000000011");
     public static readonly Guid AlertsReadAny = Guid.Parse("40000000-0000-0000-0000-000000000003");
     public static readonly Guid AlertsWriteAny = Guid.Parse("40000000-0000-0000-0000-000000000004");
     public static readonly Guid ChannelsReadOwn = Guid.Parse("40000000-0000-0000-0000-000000000005");

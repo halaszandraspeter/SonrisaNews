@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\SonrisaNews.Domain\SonrisaNews.Domain.csproj" />
     <ProjectReference Include="..\..\src\SonrisaNews.Infrastructure\SonrisaNews.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\SonrisaNews.Shared\SonrisaNews.Shared.csproj" />
+    <ProjectReference Include="..\..\src\SonrisaNews.Worker\SonrisaNews.Worker.csproj" />
   </ItemGroup>
 
 </Project>

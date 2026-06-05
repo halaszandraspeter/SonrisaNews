@@ -16,6 +16,33 @@ public static class Permissions
 {
     public const string AlertsReadOwn = "Alerts.Read.Own";
     public const string AlertsWriteOwn = "Alerts.Write.Own";
+    /// <summary>
+    /// Read-only "test this alert" preview (wave 5 §2.2). Granted to
+    /// any user who can edit their own alerts; the operation is a
+    /// re-run of the matcher against recent events with no DB writes.
+    /// Named with its own permission (not aliased to
+    /// <see cref="AlertsWriteOwn"/> OR <see cref="AlertsReadOwn"/>)
+    /// because:
+    /// <list type="bullet">
+    ///   <item>Aliasing to <see cref="AlertsWriteOwn"/> would couple
+    ///         "can I create an alert" to "can I test one" — a
+    ///         future "I want to test but not create" admin request
+    ///         would have to grant write just to enable the test
+    ///         button.</item>
+    ///   <item>Aliasing to <see cref="AlertsReadOwn"/> would couple
+    ///         "can I read this alert" to "can I test it" — a
+    ///         future "I want to read but not test" admin request
+    ///         (e.g. a content moderator who needs visibility but
+    ///         must not trigger match runs) would have to grant
+    ///         read.</item>
+    /// </list>
+    /// The new permission keeps "read" and "test" separable. A
+    /// future "moderate any user's alerts" admin can grant
+    /// <see cref="AlertsTestAny"/> separately, and a future
+    /// "preview without previewing the user-specific filter result"
+    /// (e.g. for compliance) can split the read path further.
+    /// </summary>
+    public const string AlertsTestOwn = "Alerts.Test.Own";
     public const string AlertsReadAny = "Alerts.Read.Any";
     public const string AlertsWriteAny = "Alerts.Write.Any";
 

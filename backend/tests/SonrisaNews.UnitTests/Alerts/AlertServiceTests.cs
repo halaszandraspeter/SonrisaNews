@@ -6,6 +6,7 @@ using SonrisaNews.Domain.Alerts;
 using SonrisaNews.Domain.Entities;
 using SonrisaNews.Infrastructure.Alerts;
 using SonrisaNews.Infrastructure.Auth;
+using SonrisaNews.Infrastructure.Matcher;
 using SonrisaNews.Infrastructure.Persistence;
 using SonrisaNews.Shared;
 using Xunit;
@@ -466,7 +467,11 @@ public class AlertServiceTests : IDisposable
         public void Dispose() => Db.Dispose();
 
         private AlertService NewService(Guid? userId, string? email) =>
-            new(new FakeCurrentUser(userId, email), Db, new FakeClock(), NullLogger<AlertService>.Instance);
+            new(new FakeCurrentUser(userId, email),
+                Db,
+                new FakeClock(),
+                new NewsMatcher(Db, new FakeClock(), NullLogger<NewsMatcher>.Instance),
+                NullLogger<AlertService>.Instance);
 
         private Guid SeedUser(string email)
         {

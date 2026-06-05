@@ -4,6 +4,7 @@ using SonrisaNews.Domain;
 using SonrisaNews.Domain.Alerts;
 using SonrisaNews.Domain.Entities;
 using SonrisaNews.Infrastructure.Auth;
+using SonrisaNews.Infrastructure.Matcher;
 using SonrisaNews.Infrastructure.Persistence;
 using SonrisaNews.Shared;
 
@@ -25,10 +26,14 @@ public sealed class AlertService(
     ICurrentUser currentUser,
     SonrisaNewsDbContext db,
     IClock clock,
+    INewsMatcher newsMatcher,
     ILogger<AlertService> logger) : IAlertService
 {
     /// <summary>Max number of alerts returned in a single list call. Pagination is post-MVP.</summary>
     private const int ListPageSize = 200;
+
+    /// <summary>The "Test this alert" preview window — 50 most recent events. Pin from the wave 6 scope.</summary>
+    private const int TestAlertWindow = 50;
 
     public async Task<AlertResult<IReadOnlyList<Alert>>> ListAsync(CancellationToken ct)
     {
@@ -309,5 +314,49 @@ public sealed class AlertService(
         await db.SaveChangesAsync(ct);
 
         return AlertResult<bool>.Success(true);
+    }
+
+    // -- Test ----------------------------------------------------------------
+
+    /// <inheritdoc />
+    public async Task<AlertResult<IReadOnlyList<TestAlertHit>>> TestAsync(Guid alertId, CancellationToken ct)
+    {
+        if (currentUser.Id is not { } userId)
+        {
+            return AlertResult<IReadOnlyList<TestAlertHit>>.Failure(AlertOutcome.Unauthenticated);
+        }
+
+        // Same ownership check as the rest of the service. A cross-tenant
+        // test call returns NotFound (no existence leak), matching the
+        // pattern from ListAsync / GetAsync / UpdateAsync.
+        var alert = await db.Alerts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == alertId && a.UserId == userId, ct);
+
+        if (alert is null)
+        {
+            return AlertResult<IReadOnlyList<TestAlertHit>>.Failure(AlertOutcome.NotFound);
+        }
+
+        // A disabled alert would never have fired in real life, so the
+        // preview is empty too. Matches the
+        // AlertServiceTestAlertTests.TestAsync_DisabledAlert_DoesNotMatch
+        // contract.
+        if (!alert.Enabled)
+        {
+            return AlertResult<IReadOnlyList<TestAlertHit>>.Success(Array.Empty<TestAlertHit>());
+        }
+
+        var hits = await newsMatcher.RunForAlertPreviewAsync(alert, TestAlertWindow, ct);
+
+        // The matcher's preview is read-only — it never inserts a Match
+        // row. The service is the contract holder for that invariant;
+        // the test tripwire is
+        // AlertServiceTestAlertTests.TestAsync_DoesNotInsertMatchOrNotificationRows.
+        logger.LogInformation(
+            "Alert {AlertId} tested by user {UserId}; {HitCount} hit(s) in last {Window} events",
+            alertId, userId, hits.Count, TestAlertWindow);
+
+        return AlertResult<IReadOnlyList<TestAlertHit>>.Success(hits);
     }
 }

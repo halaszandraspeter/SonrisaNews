@@ -1,5 +1,6 @@
 using SonrisaNews.Domain;
 using SonrisaNews.Domain.Entities;
+using SonrisaNews.Infrastructure.Matcher;
 
 namespace SonrisaNews.Infrastructure.Alerts;
 
@@ -34,4 +35,13 @@ public interface IAlertService
 
     /// <summary>Remove a channel-mode row for an alert owned by the caller.</summary>
     Task<AlertResult<bool>> RemoveChannelModeAsync(Guid alertId, Guid channelId, CancellationToken ct);
+
+    /// <summary>
+    /// Re-run the matcher against the most recent 50 events for the
+    /// given alert and return the "would have fired" list. The
+    /// method does <b>not</b> insert <c>Match</c> or
+    /// <c>Notification</c> rows — this is a read-only preview for
+    /// the "Test this alert" button (wave 5 §2.2 / wave 6 scope).
+    /// </summary>
+    Task<AlertResult<IReadOnlyList<TestAlertHit>>> TestAsync(Guid alertId, CancellationToken ct);
 }

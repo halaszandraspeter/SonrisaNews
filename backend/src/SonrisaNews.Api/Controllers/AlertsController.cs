@@ -216,6 +216,35 @@ public class AlertsController(IAlertService alertService) : ControllerBase
             : MapNotFound(result.Outcome);
     }
 
+    // -- Test ----------------------------------------------------------------
+
+    /// <summary>
+    /// Re-runs the matcher against the most recent 50 events for this
+    /// alert and returns the "would have fired" list. This is a
+    /// <b>read-only preview</b> — no <c>Match</c> or <c>Notification</c>
+    /// rows are inserted. The frontend's "Test this alert" button
+    /// (wave 5 §2.2 / wave 6 scope) calls this endpoint.
+    /// </summary>
+    [HttpPost("{id:guid}/test")]
+    [Authorize(Policy = Permissions.AlertsTestOwn)]
+    [ProducesResponseType(typeof(IReadOnlyList<TestAlertHitResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TestAlertHitResponse>>> TestAsync(Guid id, CancellationToken ct)
+    {
+        var bad = RejectEmptyGuid(id, nameof(id));
+        if (bad is not null) return bad;
+        var result = await alertService.TestAsync(id, ct);
+        if (!result.IsSuccess)
+        {
+            return MapNotFound(result.Outcome);
+        }
+        var hits = result.Payload!.Select(TestAlertHitResponse.From).ToList();
+        return Ok(hits);
+    }
+
     // -- helpers -------------------------------------------------------------
 
     /// <summary>
@@ -323,4 +352,15 @@ public sealed record AlertChannelModeResponse(
 {
     public static AlertChannelModeResponse From(AlertChannelMode r) => new(
         r.AlertId, r.ChannelId, r.Mode, r.CreatedAt);
+}
+
+/// <summary>
+/// One row in the "Test this alert" preview. The frontend uses the
+/// <c>EventId</c> for deep-linking and the <c>Summary</c> as the
+/// user-visible line.
+/// </summary>
+public sealed record TestAlertHitResponse(Guid EventId, string Summary)
+{
+    public static TestAlertHitResponse From(SonrisaNews.Infrastructure.Matcher.TestAlertHit hit) =>
+        new(hit.EventId, hit.Summary);
 }
